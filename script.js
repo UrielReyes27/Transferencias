@@ -406,7 +406,7 @@ function exportarReporte(reporte) {
   exportarAExcel(reporte.nombre, articulosExportar);
 }
 
-// Función auxiliar
+// Función auxiliar s
 function formatFecha(fechaStr) {
   if (!fechaStr) return 'Fecha no disponible';
   const fecha = new Date(fechaStr);
