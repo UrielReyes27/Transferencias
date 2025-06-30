@@ -1,0 +1,42 @@
+[
+    {
+        "codigo": "05511-02-01",
+        "descripcion": "Playera Negra M",
+        "activo": true,
+        "almacen_origen": "47ALM",
+        "almacen_destino": "47ALM",
+        "piezas_por_caja": 10
+    },
+    {
+        "codigo": "05511-02-02",
+        "descripcion": "Pantalón Azul 30",
+        "activo": true,
+        "almacen_origen": "47ALM",
+        "almacen_destino": "47ALM",
+        "piezas_por_caja": 12
+    },
+    {
+        "codigo": "05511-02-03",
+        "descripcion": "Sudadera Roja L",
+        "activo": false,
+        "almacen_origen": "47ALM",
+        "almacen_destino": "47ALM",
+        "piezas_por_caja": 15
+    },
+    {
+        "codigo": "05511-02-04",
+        "descripcion": "Camisa Blanca S",
+        "activo": true,
+        "almacen_origen": "47ALM",
+        "almacen_destino": "47ALM",
+        "piezas_por_caja": 8
+    },
+    {
+        "codigo": "05511-02-05",
+        "descripcion": "Short Gris 34",
+        "activo": true,
+        "almacen_origen": "47ALM",
+        "almacen_destino": "47ALM",
+        "piezas_por_caja": 6
+    }
+]
