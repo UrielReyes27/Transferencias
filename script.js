@@ -368,28 +368,27 @@ function eliminarReporte(id, elemento, enDetalle = false) {
   });
 }
 
-// Funciones de exportación
 function exportarAExcel(nombre, articulos) {
-  // Crear contenido CSV
-  let csvContent = "Número de Artículo,Descripción,Almacén,Ubicaciones,Almacén Destino,Ubicaciones,First to Bin,Total\n";
+  // Crear hoja de trabajo
+  const ws = XLSX.utils.json_to_sheet(
+    Object.keys(articulos).map(codigo => ({
+      "Número de Artículo": codigo,
+      "Descripción": articulos[codigo].descripcion,
+      "Almacén": "",
+      "Ubicaciones": "",
+      "Almacén Destino": articulos[codigo].almacenDestino,
+      "Ubicaciones": "",
+      "First to Bin": "",
+      "Total": articulos[codigo].cantidad
+    }))
+  );
   
-  Object.keys(articulos).forEach(codigo => {
-    const art = articulos[codigo];
-    csvContent += `"${codigo}","${art.descripcion}",,"","${art.almacenDestino}",,,"${art.cantidad}"\n`;
-  });
-
-  // Crear archivo y descargar
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
+  // Crear libro de trabajo
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Reporte");
   
-  link.setAttribute('href', url);
-  link.setAttribute('download', `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.csv`);
-  link.style.visibility = 'hidden';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  // Exportar
+  XLSX.writeFile(wb, `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function exportarReporte(reporte) {
