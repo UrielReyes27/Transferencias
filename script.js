@@ -1,42 +1,85 @@
 let articulos = {};
 let reporteActual = null;
+let ultimoCodigoValidado = '';
+let ultimoAlmacenValidado = '';
 
 // Inicialización de eventos
 document.addEventListener('DOMContentLoaded', function() {
+  // Botones principales
   document.getElementById('btnNuevoReporte').addEventListener('click', mostrarNuevoReporte);
   document.getElementById('btnMisReportes').addEventListener('click', mostrarMisReportes);
   document.getElementById('btnGuardarReporte').addEventListener('click', guardarReporte);
+  
+  // Campo de código
+  const codigoInput = document.getElementById('codigo');
+  codigoInput.addEventListener('input', manejarEntradaCodigo);
+  codigoInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      manejarEntradaCodigo();
+    }
+  });
+  
+  // Campo de almacén destino
+  const almacenInput = document.getElementById('almacen-destino');
+  almacenInput.addEventListener('input', manejarEntradaAlmacen);
+  almacenInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      document.getElementById('cantidad').focus();
+    }
+  });
+  
+  // Campo de cantidad
+  document.getElementById('cantidad').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      agregarArticulo();
+    }
+  });
 });
 
-// Funciones de navegación
-function mostrarPantalla(id) {
-  document.querySelectorAll('.pantalla').forEach(p => p.style.display = 'none');
-  document.getElementById(id).style.display = 'block';
+// Función para manejar entrada de código
+function manejarEntradaCodigo() {
+  const codigo = this.value.trim();
+  const esEscaneo = codigo.length > 0 && (this.value.includes('\n') || this.value.includes('\t'));
+  
+  if (esEscaneo) {
+    this.value = codigo.replace(/[\n\t]/g, '').trim();
+  }
+  
+  setTimeout(() => {
+    const codigoActual = this.value.trim();
+    if (codigoActual && codigoActual !== ultimoCodigoValidado) {
+      validarCodigoEnTiempoReal(codigoActual, esEscaneo);
+      ultimoCodigoValidado = codigoActual;
+    }
+  }, esEscaneo ? 0 : 300);
 }
 
-function mostrarNuevoReporte() {
-  articulos = {};
-  reporteActual = null;
-  document.getElementById('nombre-reporte').value = '';
-  document.getElementById('cuerpo-tabla').innerHTML = '';
-  mostrarPantalla('nuevo-reporte');
-  document.getElementById('codigo').focus();
+// Función para manejar entrada de almacén
+function manejarEntradaAlmacen() {
+  const almacen = this.value.trim();
+  const esEscaneo = almacen.length > 0 && (this.value.includes('\n') || this.value.includes('\t'));
+  
+  if (esEscaneo) {
+    this.value = almacen.replace(/[\n\t]/g, '').trim();
+  }
+  
+  setTimeout(() => {
+    const almacenActual = this.value.trim();
+    if (almacenActual && almacenActual !== ultimoAlmacenValidado) {
+      validarAlmacenEnTiempoReal(almacenActual, esEscaneo);
+      ultimoAlmacenValidado = almacenActual;
+    }
+  }, esEscaneo ? 0 : 300);
 }
 
-function mostrarMisReportes() {
-  mostrarPantalla('mis-reportes');
-  document.getElementById('lista-reportes').innerHTML = '<p>Cargando reportes...</p>';
-  cargarReportes();
-}
-
-// Funciones para nuevo reporte
-function agregarArticulo() {
-  const codigo = document.getElementById('codigo').value.trim();
-  const almacenDestino = document.getElementById('almacen-destino').value.trim();
-  const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
-
+// Función mejorada para validar código
+function validarCodigoEnTiempoReal(codigo, moverFoco = false) {
+  const errorElement = document.getElementById('error-codigo');
+  const descripcionElement = document.getElementById('descripcion');
+  
   if (!codigo) {
-    document.getElementById('error-codigo').textContent = 'Ingrese un código válido';
+    errorElement.textContent = '';
+    descripcionElement.value = '';
     return;
   }
 
@@ -51,32 +94,186 @@ function agregarArticulo() {
   })
   .then(data => {
     if (data.error) {
-      document.getElementById('error-codigo').textContent = data.error;
-      return;
-    }
-
-    document.getElementById('error-codigo').textContent = '';
-    document.getElementById('descripcion').value = data.descripcion;
-
-    // Actualizar o agregar artículo
-    if (articulos[codigo]) {
-      articulos[codigo].cantidad += cantidad;
+      // Mensajes más específicos
+      if (data.error === 'Artículo no existe') {
+        errorElement.textContent = '❌ Código NO EXISTE en el sistema';
+      } else if (data.error === 'Artículo inactivo') {
+        errorElement.textContent = '❌ Producto INACTIVO (no se puede usar)';
+      } else {
+        errorElement.textContent = '❌ ' + data.error;
+      }
+      errorElement.style.color = '#e74c3c';
+      descripcionElement.value = '';
     } else {
-      articulos[codigo] = {
-        descripcion: data.descripcion,
-        almacenDestino,
-        cantidad
-      };
+      errorElement.textContent = '✓ Producto VÁLIDO y DISPONIBLE';
+      errorElement.style.color = '#2ecc71';
+      descripcionElement.value = data.descripcion;
+      
+      if (moverFoco) {
+        document.getElementById('almacen-destino').focus();
+      }
     }
-
-    actualizarTabla();
-    document.getElementById('codigo').value = '';
-    document.getElementById('codigo').focus();
   })
   .catch(error => {
     console.error('Error:', error);
-    document.getElementById('error-codigo').textContent = 'Error al validar el artículo';
+    errorElement.textContent = '❌ Error al conectar con el servidor';
+    errorElement.style.color = '#e74c3c';
+    descripcionElement.value = '';
   });
+}
+
+// Función mejorada para validar almacén
+// ... (todo el código anterior se mantiene igual hasta la función validarAlmacenEnTiempoReal)
+
+function validarAlmacenEnTiempoReal(almacen, moverFoco = false) {
+  // Asegurarnos que el elemento de error existe
+  let errorAlmacenElement = document.getElementById('error-almacen');
+  if (!errorAlmacenElement) {
+    errorAlmacenElement = document.createElement('span');
+    errorAlmacenElement.id = 'error-almacen';
+    errorAlmacenElement.className = 'error';
+    document.getElementById('almacen-destino').insertAdjacentElement('afterend', errorAlmacenElement);
+  }
+
+  if (!almacen) {
+    errorAlmacenElement.textContent = '';
+    return;
+  }
+
+  fetch('validar_almacen.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ almacen })
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Error en la respuesta del servidor');
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.error) {
+      // Mensajes específicos para cada tipo de error
+      if (data.error.includes('no existe')) {
+        errorAlmacenElement.textContent = '❌ Almacén NO REGISTRADO en el sistema';
+      } else if (data.error.includes('inactivo')) {
+        errorAlmacenElement.textContent = '❌ Almacén INACTIVO (no disponible)';
+      } else {
+        errorAlmacenElement.textContent = '❌ ' + data.error;
+      }
+      errorAlmacenElement.style.color = '#e74c3c';
+    } else {
+      errorAlmacenElement.textContent = '✓ Almacén VALIDADO correctamente';
+      errorAlmacenElement.style.color = '#2ecc71';
+      
+      if (moverFoco) {
+        document.getElementById('cantidad').focus();
+      }
+    }
+  })
+  .catch(error => {
+    console.error('Error en la validación:', error);
+    errorAlmacenElement.textContent = '⚠️ Error al conectar con el servidor. Revise su conexión.';
+    errorAlmacenElement.style.color = '#f39c12'; // Color amarillo/naranja para advertencia
+  });
+}
+
+// ... (el resto del código se mantiene igual)
+
+function mostrarPantalla(id) {
+  document.querySelectorAll('.pantalla').forEach(p => p.style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+}
+
+function mostrarNuevoReporte() {
+  articulos = {};
+  reporteActual = null;
+  document.getElementById('nombre-reporte').value = '';
+  document.getElementById('cuerpo-tabla').innerHTML = '';
+  document.getElementById('error-codigo').textContent = '';
+  document.getElementById('error-almacen')?.remove();
+  document.getElementById('codigo').value = '';
+  document.getElementById('descripcion').value = '';
+  document.getElementById('almacen-destino').value = '';
+  document.getElementById('cantidad').value = '1';
+  mostrarPantalla('nuevo-reporte');
+  document.getElementById('codigo').focus();
+}
+
+function mostrarMisReportes() {
+  mostrarPantalla('mis-reportes');
+  document.getElementById('lista-reportes').innerHTML = '<p>Cargando reportes...</p>';
+  cargarReportes();
+}
+
+function agregarArticulo() {
+  const codigo = document.getElementById('codigo').value.trim();
+  const almacenDestino = document.getElementById('almacen-destino').value.trim();
+  const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
+  const errorCodigoElement = document.getElementById('error-codigo');
+  const errorAlmacenElement = document.getElementById('error-almacen');
+  const descripcion = document.getElementById('descripcion').value;
+
+  // Validar código
+  if (!codigo) {
+    errorCodigoElement.textContent = '❌ Ingrese un código válido';
+    errorCodigoElement.style.color = '#e74c3c';
+    document.getElementById('codigo').focus();
+    return;
+  }
+
+  if (errorCodigoElement.textContent.includes('❌')) {
+    errorCodigoElement.textContent = '❌ Corrija el código antes de agregar';
+    errorCodigoElement.style.color = '#e74c3c';
+    document.getElementById('codigo').focus();
+    return;
+  }
+
+  // Validar almacén
+  if (!almacenDestino) {
+    if (!errorAlmacenElement) {
+      const almacenInput = document.getElementById('almacen-destino');
+      const newErrorElement = document.createElement('span');
+      newErrorElement.id = 'error-almacen';
+      newErrorElement.className = 'error';
+      newErrorElement.textContent = '❌ Ingrese un almacén válido';
+      newErrorElement.style.color = '#e74c3c';
+      almacenInput.insertAdjacentElement('afterend', newErrorElement);
+    } else {
+      errorAlmacenElement.textContent = '❌ Ingrese un almacén válido';
+      errorAlmacenElement.style.color = '#e74c3c';
+    }
+    document.getElementById('almacen-destino').focus();
+    return;
+  }
+
+  if (errorAlmacenElement?.textContent.includes('❌')) {
+    errorAlmacenElement.textContent = '❌ Corrija el almacén antes de agregar';
+    errorAlmacenElement.style.color = '#e74c3c';
+    document.getElementById('almacen-destino').focus();
+    return;
+  }
+
+  // Agregar artículo
+  if (articulos[codigo]) {
+    articulos[codigo].cantidad += cantidad;
+  } else {
+    articulos[codigo] = {
+      descripcion: descripcion,
+      almacenDestino: almacenDestino,
+      cantidad: cantidad
+    };
+  }
+
+  actualizarTabla();
+  
+  // Limpiar campos
+  document.getElementById('codigo').value = '';
+  document.getElementById('descripcion').value = '';
+  document.getElementById('almacen-destino').value = '';
+  document.getElementById('error-codigo').textContent = '';
+  document.getElementById('error-almacen')?.remove();
+  document.getElementById('codigo').focus();
 }
 
 function actualizarTabla() {
@@ -103,8 +300,6 @@ function actualizarTabla() {
 }
 
 function guardarReporte() {
-  console.log('Función guardarReporte ejecutada');
-  
   const nombre = document.getElementById('nombre-reporte').value.trim();
   
   if (!nombre) {
@@ -123,22 +318,18 @@ function guardarReporte() {
     fecha: new Date().toISOString()
   };
 
-  console.log('Datos a enviar:', datos);
-
   fetch('guardar_reporte.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(datos)
   })
   .then(response => {
-    console.log('Respuesta recibida, status:', response.status);
     if (!response.ok) {
       return response.json().then(err => { throw err; });
     }
     return response.json();
   })
   .then(data => {
-    console.log('Datos de respuesta:', data);
     if (data.success) {
       alert('Reporte guardado exitosamente con ID: ' + (data.id || ''));
       exportarAExcel(nombre, articulos);
@@ -148,7 +339,7 @@ function guardarReporte() {
     }
   })
   .catch(error => {
-    console.error('Error completo:', error);
+    console.error('Error:', error);
     let errorMsg = 'Error al guardar el reporte: ';
     
     if (error.error) {
@@ -163,7 +354,6 @@ function guardarReporte() {
   });
 }
 
-// Funciones para mis reportes
 function cargarReportes() {
   fetch('obtener_reportes.php')
     .then(response => {
@@ -171,7 +361,6 @@ function cargarReportes() {
       return response.json();
     })
     .then(data => {
-      console.log("Reportes recibidos:", data);
       const lista = document.getElementById('lista-reportes');
       lista.innerHTML = '';
 
@@ -184,7 +373,6 @@ function cargarReportes() {
         const item = document.createElement('div');
         item.className = 'reporte-item';
         
-        // Parsear datos del reporte
         let articulosReporte = {};
         try {
           const datos = typeof reporte.datos === 'string' ? JSON.parse(reporte.datos) : reporte;
@@ -207,7 +395,6 @@ function cargarReportes() {
         lista.appendChild(item);
       });
 
-      // Asignar eventos después de crear los elementos
       asignarEventosReportes();
     })
     .catch(error => {
@@ -219,7 +406,6 @@ function cargarReportes() {
 }
 
 function asignarEventosReportes() {
-  // Evento para botones Ver
   document.querySelectorAll('.btn-ver').forEach(btn => {
     btn.addEventListener('click', function() {
       const reporte = JSON.parse(this.getAttribute('data-reporte'));
@@ -227,7 +413,6 @@ function asignarEventosReportes() {
     });
   });
 
-  // Evento para botones Exportar
   document.querySelectorAll('.btn-exportar').forEach(btn => {
     btn.addEventListener('click', function() {
       const reporte = JSON.parse(this.getAttribute('data-reporte'));
@@ -235,7 +420,6 @@ function asignarEventosReportes() {
     });
   });
 
-  // Evento para botones Eliminar
   document.querySelectorAll('.btn-eliminar').forEach(btn => {
     btn.addEventListener('click', function() {
       const id = this.getAttribute('data-id');
@@ -245,12 +429,10 @@ function asignarEventosReportes() {
 }
 
 function mostrarDetalleReporte(reporte) {
-  console.log("Mostrando reporte:", reporte);
   document.getElementById('nombre-reporte-detalle').textContent = reporte.nombre;
   const contenido = document.getElementById('contenido-reporte');
   contenido.innerHTML = '<p>Cargando detalles...</p>';
 
-  // Procesar datos del reporte
   let articulosMostrar = {};
   try {
     const datos = typeof reporte.datos === 'string' ? JSON.parse(reporte.datos) : reporte;
@@ -261,7 +443,6 @@ function mostrarDetalleReporte(reporte) {
     return;
   }
 
-  // Crear tabla
   const table = document.createElement('table');
   table.className = 'tabla-detalle';
   table.innerHTML = `
@@ -302,7 +483,6 @@ function mostrarDetalleReporte(reporte) {
     });
   }
 
-  // Botones de acción
   const acciones = document.createElement('div');
   acciones.className = 'acciones-detalle';
   acciones.innerHTML = `
@@ -315,7 +495,6 @@ function mostrarDetalleReporte(reporte) {
   contenido.appendChild(table);
   contenido.appendChild(acciones);
   
-  // Asignar eventos a los nuevos botones
   contenido.querySelector('.btn-exportar-detalle').addEventListener('click', function() {
     const reporte = JSON.parse(this.getAttribute('data-reporte'));
     exportarReporte(reporte);
@@ -369,26 +548,28 @@ function eliminarReporte(id, elemento, enDetalle = false) {
 }
 
 function exportarAExcel(nombre, articulos) {
-  // Crear hoja de trabajo
-  const ws = XLSX.utils.json_to_sheet(
-    Object.keys(articulos).map(codigo => ({
-      "Número de Artículo": codigo,
-      "Descripción": articulos[codigo].descripcion,
-      "Almacén": "",
-      "Ubicaciones": "",
-      "Almacén Destino": articulos[codigo].almacenDestino,
-      "Ubicaciones": "",
-      "First to Bin": "",
-      "Total": articulos[codigo].cantidad
-    }))
-  );
+  function toLatin1(str) {
+    return unescape(encodeURIComponent(str));
+  }
+
+  let csvContent = "Número de Artículo,Descripción,Almacén,Ubicaciones,Almacén Destino,Ubicaciones,First to Bin,Total\n";
   
-  // Crear libro de trabajo
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+  Object.keys(articulos).forEach(codigo => {
+    const art = articulos[codigo];
+    csvContent += `"${codigo}","${art.descripcion}",,"","${art.almacenDestino}",,,"${art.cantidad}"\n`;
+  });
+
+  const blob = new Blob([toLatin1(csvContent)], { type: 'text/csv;charset=iso-8859-1;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
   
-  // Exportar
-  XLSX.writeFile(wb, `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function exportarReporte(reporte) {
@@ -405,7 +586,6 @@ function exportarReporte(reporte) {
   exportarAExcel(reporte.nombre, articulosExportar);
 }
 
-// Función auxiliar s
 function formatFecha(fechaStr) {
   if (!fechaStr) return 'Fecha no disponible';
   const fecha = new Date(fechaStr);

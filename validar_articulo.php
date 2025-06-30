@@ -10,14 +10,18 @@ if ($conn->connect_error) {
 $data = json_decode(file_get_contents('php://input'), true);
 $codigo = $conn->real_escape_string($data['codigo']);
 
-$sql = "SELECT descripcion FROM productos WHERE codigo = '$codigo' AND activo = 1";
+$sql = "SELECT descripcion, activo FROM productos WHERE codigo = '$codigo'";
 $result = $conn->query($sql);
 
 if ($result->num_rows === 0) {
-  echo json_encode(['error' => 'Artículo no existe o está inactivo']);
+  echo json_encode(['error' => 'Artículo no existe']);
 } else {
   $row = $result->fetch_assoc();
-  echo json_encode(['descripcion' => $row['descripcion']]);
+  if ($row['activo'] == 0) {
+    echo json_encode(['error' => 'Artículo inactivo']);
+  } else {
+    echo json_encode(['descripcion' => $row['descripcion']]);
+  }
 }
 
 $conn->close();
