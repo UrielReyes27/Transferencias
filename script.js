@@ -1,8 +1,12 @@
-let articulos = {};
+// Variables globales
+let capturasIndividuales = [];
+let articulosConsolidados = {};
 let reporteActual = null;
-let ultimoCodigoValidado = '';
-let ultimoAlmacenOrigenValidado = '';
-let ultimoAlmacenDestinoValidado = '';
+
+// Función para generar clave única
+function generarClaveUnica(codigo, almacenOrigen, almacenDestino) {
+  return `${codigo}-${almacenOrigen}-${almacenDestino}`;
+}
 
 // Inicialización de eventos
 document.addEventListener('DOMContentLoaded', function() {
@@ -11,283 +15,207 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btnMisReportes').addEventListener('click', mostrarMisReportes);
   document.getElementById('btnGuardarReporte').addEventListener('click', guardarReporte);
   
-  // Campo de código
+  // Campos del formulario
   const codigoInput = document.getElementById('codigo');
-  codigoInput.addEventListener('input', manejarEntradaCodigo);
-  codigoInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      manejarEntradaCodigo();
-    }
-  });
-  
-  // Campo de almacén origen
   const almacenOrigenInput = document.getElementById('almacen-origen');
-  almacenOrigenInput.addEventListener('input', manejarEntradaAlmacenOrigen);
-  almacenOrigenInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      document.getElementById('almacen-destino').focus();
-    }
-  });
-  
-  // Campo de almacén destino
   const almacenDestinoInput = document.getElementById('almacen-destino');
-  almacenDestinoInput.addEventListener('input', manejarEntradaAlmacenDestino);
-  almacenDestinoInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      document.getElementById('cantidad').focus();
-    }
+  
+  // Eventos para código
+  codigoInput.addEventListener('input', function() {
+    validarCampo(this, 'codigo');
+  });
+  codigoInput.addEventListener('paste', function(e) {
+    setTimeout(() => validarCampo(this, 'codigo', false, true), 50);
   });
   
-  // Campo de cantidad
+  // Eventos para almacén origen
+  almacenOrigenInput.addEventListener('input', function() {
+    validarCampo(this, 'almacen-origen');
+  });
+  almacenOrigenInput.addEventListener('paste', function(e) {
+    setTimeout(() => validarCampo(this, 'almacen-origen'), 50);
+  });
+  
+  // Eventos para almacén destino
+  almacenDestinoInput.addEventListener('input', function() {
+    validarCampo(this, 'almacen-destino');
+  });
+  almacenDestinoInput.addEventListener('paste', function(e) {
+    setTimeout(() => validarCampo(this, 'almacen-destino'), 50);
+  });
+  
+  // Eventos de teclado
+  codigoInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') validarCampo(this, 'codigo', true);
+  });
+  
+  almacenOrigenInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') validarCampo(this, 'almacen-origen', true);
+  });
+  
+  almacenDestinoInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') validarCampo(this, 'almacen-destino', true);
+  });
+  
   document.getElementById('cantidad').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      agregarArticulo();
-    }
+    if (e.key === 'Enter') agregarArticulo();
   });
 });
 
-// Función para manejar entrada de código
-function manejarEntradaCodigo() {
-  const codigo = this.value.trim();
-  const esEscaneo = codigo.length > 0 && (this.value.includes('\n') || this.value.includes('\t'));
+// Función para validar campos
+function validarCampo(input, tipo, moverFoco = false, forzarValidacion = false) {
+  const valor = input.value.trim().replace(/[\n\t\r]/g, '');
+  input.value = valor;
   
-  if (esEscaneo) {
-    this.value = codigo.replace(/[\n\t]/g, '').trim();
-  }
-  
-  setTimeout(() => {
-    const codigoActual = this.value.trim();
-    if (codigoActual && codigoActual !== ultimoCodigoValidado) {
-      validarCodigoEnTiempoReal(codigoActual, esEscaneo);
-      ultimoCodigoValidado = codigoActual;
-    }
-  }, esEscaneo ? 0 : 300);
-}
-
-// Función para manejar entrada de almacén origen
-function manejarEntradaAlmacenOrigen() {
-  const almacen = this.value.trim();
-  const esEscaneo = almacen.length > 0 && (this.value.includes('\n') || this.value.includes('\t'));
-  
-  if (esEscaneo) {
-    this.value = almacen.replace(/[\n\t]/g, '').trim();
-  }
-  
-  setTimeout(() => {
-    const almacenActual = this.value.trim();
-    if (almacenActual && almacenActual !== ultimoAlmacenOrigenValidado) {
-      validarAlmacenEnTiempoReal(almacenActual, 'origen', esEscaneo);
-      ultimoAlmacenOrigenValidado = almacenActual;
-    }
-  }, esEscaneo ? 0 : 300);
-}
-
-// Función para manejar entrada de almacén destino
-function manejarEntradaAlmacenDestino() {
-  const almacen = this.value.trim();
-  const esEscaneo = almacen.length > 0 && (this.value.includes('\n') || this.value.includes('\t'));
-  
-  if (esEscaneo) {
-    this.value = almacen.replace(/[\n\t]/g, '').trim();
-  }
-  
-  setTimeout(() => {
-    const almacenActual = this.value.trim();
-    if (almacenActual && almacenActual !== ultimoAlmacenDestinoValidado) {
-      validarAlmacenEnTiempoReal(almacenActual, 'destino', esEscaneo);
-      ultimoAlmacenDestinoValidado = almacenActual;
-    }
-  }, esEscaneo ? 0 : 300);
-}
-
-// Función mejorada para validar código
-function validarCodigoEnTiempoReal(codigo, moverFoco = false) {
-  const errorElement = document.getElementById('error-codigo');
-  const descripcionElement = document.getElementById('descripcion');
-  
-  if (!codigo) {
-    errorElement.textContent = '';
-    descripcionElement.value = '';
-    return;
+  if (!valor) {
+    mostrarError(tipo, '');
+    return false;
   }
 
-  fetch('validar_articulo.php', {
+  if ((tipo === 'codigo' && valor.length < 3) || 
+      ((tipo === 'almacen-origen' || tipo === 'almacen-destino') && valor.length < 2)) {
+    mostrarError(tipo, '❌ Valor demasiado corto');
+    return false;
+  }
+
+  const endpoint = tipo === 'codigo' ? 'validar_articulo.php' : 'validar_almacen.php';
+  
+  fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ codigo })
+    body: JSON.stringify(tipo === 'codigo' ? { codigo: valor } : { almacen: valor })
   })
   .then(response => {
-    if (!response.ok) throw new Error('Error en la validación');
+    if (!response.ok) throw new Error('Error en la respuesta');
     return response.json();
   })
   .then(data => {
     if (data.error) {
-      if (data.error === 'Artículo no existe') {
-        errorElement.textContent = '❌ Código NO EXISTE en el sistema';
-      } else if (data.error === 'Artículo inactivo') {
-        errorElement.textContent = '❌ Producto INACTIVO (no se puede usar)';
-      } else {
-        errorElement.textContent = '❌ ' + data.error;
-      }
-      errorElement.style.color = '#e74c3c';
-      descripcionElement.value = '';
+      mostrarError(tipo, `❌ ${data.error}`);
     } else {
-      errorElement.textContent = '✓ Producto VÁLIDO y DISPONIBLE';
-      errorElement.style.color = '#2ecc71';
-      descripcionElement.value = data.descripcion;
-      
-      if (moverFoco) {
-        document.getElementById('almacen-origen').focus();
+      mostrarError(tipo, '✓ Válido', true);
+      if (tipo === 'codigo') {
+        document.getElementById('descripcion').value = data.descripcion || '';
       }
+      if (moverFoco) moverFocoSiguiente(tipo);
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    errorElement.textContent = '❌ Error al conectar con el servidor';
-    errorElement.style.color = '#e74c3c';
-    descripcionElement.value = '';
+    mostrarError(tipo, '❌ Error de conexión');
   });
 }
 
-// Función para validar almacén (origen o destino)
-function validarAlmacenEnTiempoReal(almacen, tipo = 'destino', moverFoco = false) {
-  const errorElement = document.getElementById(`error-almacen-${tipo}`);
-  
-  if (!almacen) {
-    if (errorElement) errorElement.textContent = '';
-    return;
+// Función para mostrar errores
+function mostrarError(tipo, mensaje, esExito = false) {
+  const errorElement = document.getElementById(`error-${tipo}`);
+  if (errorElement) {
+    errorElement.textContent = mensaje;
+    errorElement.style.color = esExito ? '#2ecc71' : '#e74c3c';
   }
-
-  fetch('validar_almacen.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ almacen })
-  })
-  .then(response => {
-    if (!response.ok) throw new Error('Error en la respuesta del servidor');
-    return response.json();
-  })
-  .then(data => {
-    if (data.error) {
-      errorElement.textContent = `❌ ${data.error}`;
-      errorElement.style.color = '#e74c3c';
-    } else {
-      errorElement.textContent = '✓ Almacén VALIDADO correctamente';
-      errorElement.style.color = '#2ecc71';
-      
-      if (moverFoco) {
-        if (tipo === 'origen') {
-          document.getElementById('almacen-destino').focus();
-        } else {
-          document.getElementById('cantidad').focus();
-        }
-      }
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    errorElement.textContent = '❌ Error al conectar con el servidor';
-    errorElement.style.color = '#e74c3c';
-  });
 }
 
-// Funciones para mostrar pantallas
-function mostrarPantalla(id) {
-  document.querySelectorAll('.pantalla').forEach(p => p.style.display = 'none');
-  document.getElementById(id).style.display = 'block';
+// Función para mover foco
+function moverFocoSiguiente(tipo) {
+  const campos = ['codigo', 'almacen-origen', 'almacen-destino', 'cantidad'];
+  const indexActual = campos.indexOf(tipo);
+  if (indexActual < campos.length - 1) {
+    document.getElementById(campos[indexActual + 1]).focus();
+  }
 }
 
-function mostrarNuevoReporte() {
-  articulos = {};
-  reporteActual = null;
-  document.getElementById('nombre-reporte').value = '';
-  document.getElementById('cuerpo-tabla').innerHTML = '';
-  document.getElementById('error-codigo').textContent = '';
-  document.getElementById('error-almacen-origen').textContent = '';
-  document.getElementById('error-almacen-destino').textContent = '';
-  document.getElementById('codigo').value = '';
-  document.getElementById('descripcion').value = '';
-  document.getElementById('almacen-origen').value = '';
-  document.getElementById('almacen-destino').value = '';
-  document.getElementById('cantidad').value = '1';
-  mostrarPantalla('nuevo-reporte');
-  document.getElementById('codigo').focus();
-}
-
-function mostrarMisReportes() {
-  mostrarPantalla('mis-reportes');
-  document.getElementById('lista-reportes').innerHTML = '<p>Cargando reportes...</p>';
-  cargarReportes();
-}
-
-// Función para agregar artículo (modificada para incluir almacén origen)
+// Función para agregar artículo
 function agregarArticulo() {
   const codigo = document.getElementById('codigo').value.trim();
   const almacenOrigen = document.getElementById('almacen-origen').value.trim();
   const almacenDestino = document.getElementById('almacen-destino').value.trim();
   const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
-  const errorCodigoElement = document.getElementById('error-codigo');
-  const errorAlmacenOrigenElement = document.getElementById('error-almacen-origen');
-  const errorAlmacenDestinoElement = document.getElementById('error-almacen-destino');
   const descripcion = document.getElementById('descripcion').value;
 
-  // Validar código
-  if (!codigo || errorCodigoElement.textContent.includes('❌')) {
-    alert('Por favor ingrese un código válido');
-    document.getElementById('codigo').focus();
+  const errores = [
+    document.getElementById('error-codigo'),
+    document.getElementById('error-almacen-origen'),
+    document.getElementById('error-almacen-destino')
+  ].some(e => e.textContent.includes('❌'));
+
+  if (!codigo || !almacenOrigen || !almacenDestino || errores) {
+    alert('Complete todos los campos correctamente');
     return;
   }
 
-  // Validar almacén origen
-  if (!almacenOrigen || (errorAlmacenOrigenElement && errorAlmacenOrigenElement.textContent.includes('❌'))) {
-    alert('Por favor ingrese un almacén origen válido');
-    document.getElementById('almacen-origen').focus();
-    return;
-  }
+  const captura = {
+    id: Date.now(),
+    codigo,
+    descripcion,
+    almacenOrigen,
+    almacenDestino,
+    cantidad,
+    fecha: new Date().toISOString()
+  };
 
-  // Validar almacén destino
-  if (!almacenDestino || (errorAlmacenDestinoElement && errorAlmacenDestinoElement.textContent.includes('❌'))) {
-    alert('Por favor ingrese un almacén destino válido');
-    document.getElementById('almacen-destino').focus();
-    return;
-  }
+  capturasIndividuales.unshift(captura);
 
-  // Agregar artículo
-  if (articulos[codigo]) {
-    articulos[codigo].cantidad += cantidad;
+  const claveUnica = generarClaveUnica(codigo, almacenOrigen, almacenDestino);
+
+  if (articulosConsolidados[claveUnica]) {
+    articulosConsolidados[claveUnica].cantidad += cantidad;
   } else {
-    articulos[codigo] = {
-      descripcion: descripcion,
-      almacenOrigen: almacenOrigen,
-      almacenDestino: almacenDestino,
-      cantidad: cantidad
+    articulosConsolidados[claveUnica] = {
+      codigo,
+      descripcion,
+      almacenOrigen,
+      almacenDestino,
+      cantidad
     };
   }
 
-  actualizarTabla();
-  
-  // Limpiar campos
-  document.getElementById('codigo').value = '';
-  document.getElementById('descripcion').value = '';
-  document.getElementById('almacen-origen').value = '';
-  document.getElementById('almacen-destino').value = '';
-  document.getElementById('error-codigo').textContent = '';
-  if (errorAlmacenOrigenElement) errorAlmacenOrigenElement.textContent = '';
-  if (errorAlmacenDestinoElement) errorAlmacenDestinoElement.textContent = '';
-  document.getElementById('codigo').focus();
+  actualizarTablas();
+  limpiarCampos();
 }
 
-// Función para actualizar la tabla (modificada para mostrar almacén origen)
-function actualizarTabla() {
-  const tbody = document.getElementById('cuerpo-tabla');
+// Función para actualizar tablas
+function actualizarTablas() {
+  actualizarTablaIndividual();
+  actualizarTablaConsolidada();
+}
+
+function actualizarTablaIndividual() {
+  const tbody = document.getElementById('cuerpo-tabla-individual');
   tbody.innerHTML = '';
 
-  Object.keys(articulos).forEach(codigo => {
-    const articulo = articulos[codigo];
+  capturasIndividuales.forEach(captura => {
+    const row = document.createElement('tr');
+    row.dataset.id = captura.id;
+    
+    row.innerHTML = `
+      <td>${captura.codigo}</td>
+      <td>${captura.descripcion}</td>
+      <td>${captura.almacenOrigen}</td>
+      <td>${captura.almacenDestino}</td>
+      <td>${captura.cantidad}</td>
+      <td><button class="btn-eliminar-captura" data-id="${captura.id}">✖</button></td>
+    `;
+    
+    tbody.appendChild(row);
+  });
+
+  document.querySelectorAll('.btn-eliminar-captura').forEach(btn => {
+    btn.addEventListener('click', function() {
+      eliminarCaptura(this.dataset.id);
+    });
+  });
+}
+
+function actualizarTablaConsolidada() {
+  const tbody = document.getElementById('cuerpo-tabla-consolidada');
+  tbody.innerHTML = '';
+
+  Object.keys(articulosConsolidados).forEach(clave => {
+    const articulo = articulosConsolidados[clave];
     const row = document.createElement('tr');
     
     row.innerHTML = `
-      <td>${codigo}</td>
+      <td>${articulo.codigo}</td>
       <td>${articulo.descripcion}</td>
       <td>${articulo.almacenOrigen}</td>
       <td></td>
@@ -301,23 +229,76 @@ function actualizarTabla() {
   });
 }
 
-// Función para guardar reporte (modificada para incluir almacén origen)
+function eliminarCaptura(id) {
+  const index = capturasIndividuales.findIndex(c => c.id == id);
+  if (index === -1) return;
+
+  const captura = capturasIndividuales[index];
+  const claveUnica = generarClaveUnica(captura.codigo, captura.almacenOrigen, captura.almacenDestino);
+  
+  if (articulosConsolidados[claveUnica]) {
+    articulosConsolidados[claveUnica].cantidad -= captura.cantidad;
+    
+    if (articulosConsolidados[claveUnica].cantidad <= 0) {
+      delete articulosConsolidados[claveUnica];
+    }
+  }
+
+  capturasIndividuales.splice(index, 1);
+  actualizarTablas();
+}
+
+function limpiarCampos() {
+  document.getElementById('codigo').value = '';
+  document.getElementById('descripcion').value = '';
+  document.getElementById('almacen-origen').value = '';
+  document.getElementById('almacen-destino').value = '';
+  document.getElementById('error-codigo').textContent = '';
+  document.getElementById('error-almacen-origen').textContent = '';
+  document.getElementById('error-almacen-destino').textContent = '';
+  document.getElementById('codigo').focus();
+}
+
+function mostrarPantalla(id) {
+  document.querySelectorAll('.pantalla').forEach(p => p.style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+}
+
+function mostrarNuevoReporte() {
+  capturasIndividuales = [];
+  articulosConsolidados = {};
+  reporteActual = null;
+  document.getElementById('nombre-reporte').value = '';
+  document.getElementById('cuerpo-tabla-individual').innerHTML = '';
+  document.getElementById('cuerpo-tabla-consolidada').innerHTML = '';
+  limpiarCampos();
+  document.getElementById('cantidad').value = '1';
+  mostrarPantalla('nuevo-reporte');
+}
+
+function mostrarMisReportes() {
+  mostrarPantalla('mis-reportes');
+  document.getElementById('lista-reportes').innerHTML = '<p>Cargando reportes...</p>';
+  cargarReportes();
+}
+
 function guardarReporte() {
   const nombre = document.getElementById('nombre-reporte').value.trim();
   
   if (!nombre) {
-    alert('Por favor ingrese un nombre para el reporte');
+    alert('Ingrese un nombre para el reporte');
     return;
   }
 
-  if (Object.keys(articulos).length === 0) {
+  if (Object.keys(articulosConsolidados).length === 0) {
     alert('No hay artículos para guardar');
     return;
   }
 
   const datos = {
     nombre,
-    articulos,
+    articulos: articulosConsolidados,
+    capturasIndividuales,
     fecha: new Date().toISOString()
   };
 
@@ -327,15 +308,13 @@ function guardarReporte() {
     body: JSON.stringify(datos)
   })
   .then(response => {
-    if (!response.ok) {
-      return response.json().then(err => { throw err; });
-    }
+    if (!response.ok) return response.json().then(err => { throw err; });
     return response.json();
   })
   .then(data => {
     if (data.success) {
-      alert('Reporte guardado exitosamente con ID: ' + (data.id || ''));
-      exportarAExcel(nombre, articulos);
+      alert('Reporte guardado exitosamente');
+      exportarAExcel(nombre);
       mostrarPantalla('inicio');
     } else {
       throw new Error(data.error || 'Error desconocido');
@@ -343,21 +322,35 @@ function guardarReporte() {
   })
   .catch(error => {
     console.error('Error:', error);
-    let errorMsg = 'Error al guardar el reporte: ';
-    
-    if (error.error) {
-      errorMsg += error.error;
-      if (error.detalle) errorMsg += " (" + error.detalle + ")";
-      if (error.sql_error) errorMsg += " [Error SQL: " + error.sql_error + "]";
-    } else {
-      errorMsg += error.message;
-    }
-    
-    alert(errorMsg);
+    alert('Error al guardar: ' + error.message);
   });
 }
 
-// Función para cargar reportes
+function exportarAExcel(nombre) {
+  function toLatin1(str) {
+    return unescape(encodeURIComponent(str));
+  }
+
+  let csvContent = "Código,Descripción,Almacén Origen,Ubicación Origen,Almacén Destino,Ubicación Destino,First to Bin,Cantidad\n";
+  
+  Object.keys(articulosConsolidados).forEach(clave => {
+    const art = articulosConsolidados[clave];
+    csvContent += `"${art.codigo}","${art.descripcion}","${art.almacenOrigen}","","${art.almacenDestino}","","","${art.cantidad}"\n`;
+  });
+
+  const blob = new Blob([toLatin1(csvContent)], { type: 'text/csv;charset=iso-8859-1;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function cargarReportes() {
   fetch('obtener_reportes.php')
     .then(response => {
@@ -409,7 +402,6 @@ function cargarReportes() {
     });
 }
 
-// Función para asignar eventos a los reportes
 function asignarEventosReportes() {
   document.querySelectorAll('.btn-ver').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -433,7 +425,6 @@ function asignarEventosReportes() {
   });
 }
 
-// Función para mostrar detalle del reporte (modificada para mostrar almacén origen)
 function mostrarDetalleReporte(reporte) {
   document.getElementById('nombre-reporte-detalle').textContent = reporte.nombre;
   const contenido = document.getElementById('contenido-reporte');
@@ -472,11 +463,11 @@ function mostrarDetalleReporte(reporte) {
   if (Object.keys(articulosMostrar).length === 0) {
     tbody.innerHTML = '<tr><td colspan="8">No hay artículos en este reporte</td></tr>';
   } else {
-    Object.keys(articulosMostrar).forEach(codigo => {
-      const articulo = articulosMostrar[codigo];
+    Object.keys(articulosMostrar).forEach(clave => {
+      const articulo = articulosMostrar[clave];
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${codigo}</td>
+        <td>${articulo.codigo}</td>
         <td>${articulo.descripcion}</td>
         <td>${articulo.almacenOrigen}</td>
         <td></td>
@@ -517,13 +508,20 @@ function mostrarDetalleReporte(reporte) {
   document.getElementById('detalle-reporte').style.display = 'block';
 }
 
-// Función para cerrar detalle
-function cerrarDetalle() {
-  document.getElementById('detalle-reporte').style.display = 'none';
-  document.getElementById('lista-reportes').style.display = 'grid';
+function exportarReporte(reporte) {
+  let articulosExportar = {};
+  try {
+    const datos = typeof reporte.datos === 'string' ? JSON.parse(reporte.datos) : reporte;
+    articulosExportar = datos.articulos || {};
+  } catch (e) {
+    console.error("Error al parsear:", e);
+    alert('Error al exportar el reporte');
+    return;
+  }
+
+  exportarAExcel(reporte.nombre, articulosExportar);
 }
 
-// Función para eliminar reporte
 function eliminarReporte(id, elemento, enDetalle = false) {
   if (!confirm('¿Estás seguro de eliminar este reporte?')) return;
 
@@ -555,48 +553,11 @@ function eliminarReporte(id, elemento, enDetalle = false) {
   });
 }
 
-// Función para exportar a Excel (modificada para incluir almacén origen)
-function exportarAExcel(nombre, articulos) {
-  function toLatin1(str) {
-    return unescape(encodeURIComponent(str));
-  }
-
-  let csvContent = "Número de Artículo,Descripción,Almacén Origen,Ubicaciones,Almacén Destino,Ubicaciones,First to Bin,Total\n";
-  
-  Object.keys(articulos).forEach(codigo => {
-    const art = articulos[codigo];
-    csvContent += `"${codigo}","${art.descripcion}","${art.almacenOrigen}",,"${art.almacenDestino}",,,"${art.cantidad}"\n`;
-  });
-
-  const blob = new Blob([toLatin1(csvContent)], { type: 'text/csv;charset=iso-8859-1;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  
-  link.setAttribute('href', url);
-  link.setAttribute('download', `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.csv`);
-  link.style.visibility = 'hidden';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+function cerrarDetalle() {
+  document.getElementById('detalle-reporte').style.display = 'none';
+  document.getElementById('lista-reportes').style.display = 'grid';
 }
 
-// Función para exportar reporte
-function exportarReporte(reporte) {
-  let articulosExportar = {};
-  try {
-    const datos = typeof reporte.datos === 'string' ? JSON.parse(reporte.datos) : reporte;
-    articulosExportar = datos.articulos || {};
-  } catch (e) {
-    console.error("Error al parsear:", e);
-    alert('Error al exportar el reporte');
-    return;
-  }
-
-  exportarAExcel(reporte.nombre, articulosExportar);
-}
-
-// Función para formatear fecha
 function formatFecha(fechaStr) {
   if (!fechaStr) return 'Fecha no disponible';
   const fecha = new Date(fechaStr);

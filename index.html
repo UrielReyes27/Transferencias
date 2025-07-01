@@ -29,26 +29,49 @@
         <input type="text" id="nombre-reporte" placeholder="Ej: Tarima1">
       </div>
       
-     <div class="formulario">
-  <input type="text" id="codigo" placeholder="Escanea el código" autofocus>
-  <span id="error-codigo" class="error"></span>
-  <input type="text" id="descripcion" placeholder="Descripción" readonly>
-  <input type="text" id="almacen-origen" placeholder="Almacén Origen">
-  <span id="error-almacen-origen" class="error"></span>
-  <input type="text" id="almacen-destino" placeholder="Almacén Destino">
-  <span id="error-almacen-destino" class="error"></span>
-  <input type="number" id="cantidad" value="1" min="1">
-  <button onclick="agregarArticulo()">Agregar</button>
-</div>
+      <div class="formulario">
+        <input type="text" id="codigo" placeholder="Escanea el código" autofocus>
+        <span id="error-codigo" class="error"></span>
+        <input type="text" id="descripcion" placeholder="Descripción" readonly>
+        <input type="text" id="almacen-origen" placeholder="Almacén Origen">
+        <span id="error-almacen-origen" class="error"></span>
+        <input type="text" id="almacen-destino" placeholder="Almacén Destino">
+        <span id="error-almacen-destino" class="error"></span>
+        <input type="number" id="cantidad" value="1" min="1">
+        <button onclick="agregarArticulo()">Agregar</button>
+      </div>
 
-      <table id="tabla-picking">
+      <div class="tabla-capturas">
+        <h3>Capturas Individuales</h3>
+        <table id="tabla-capturas-individuales">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th>Almacén Origen</th>
+              <th>Almacén Destino</th>
+              <th>Cantidad</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpo-tabla-individual"></tbody>
+        </table>
+      </div>
+
+      <table id="tabla-picking-consolidada">
         <thead>
           <tr>
-            <th>Código</th><th>Descripción</th><th>Almacén</th><th>Ubicaciones</th>
-            <th>Almacén Destino</th><th>Ubicaciones</th><th>First to Bin</th><th>Total</th>
+            <th>Código</th>
+            <th>Descripción</th>
+            <th>Almacén</th>
+            <th>Ubicaciones</th>
+            <th>Almacén Destino</th>
+            <th>Ubicaciones</th>
+            <th>First to Bin</th>
+            <th>Total</th>
           </tr>
         </thead>
-        <tbody id="cuerpo-tabla"></tbody>
+        <tbody id="cuerpo-tabla-consolidada"></tbody>
       </table>
 
       <button id="btnGuardarReporte" class="exportar">Guardar Reporte</button>
