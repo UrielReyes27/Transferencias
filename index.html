@@ -29,14 +29,17 @@
         <input type="text" id="nombre-reporte" placeholder="Ej: Tarima1">
       </div>
       
-      <div class="formulario">
-        <input type="text" id="codigo" placeholder="Escanea el código" autofocus>
-        <span id="error-codigo" class="error"></span>
-        <input type="text" id="descripcion" placeholder="Descripción" readonly>
-        <input type="text" id="almacen-destino" placeholder="Almacén Destino">
-        <input type="number" id="cantidad" value="1" min="1">
-        <button onclick="agregarArticulo()">Agregar</button>
-      </div>
+     <div class="formulario">
+  <input type="text" id="codigo" placeholder="Escanea el código" autofocus>
+  <span id="error-codigo" class="error"></span>
+  <input type="text" id="descripcion" placeholder="Descripción" readonly>
+  <input type="text" id="almacen-origen" placeholder="Almacén Origen">
+  <span id="error-almacen-origen" class="error"></span>
+  <input type="text" id="almacen-destino" placeholder="Almacén Destino">
+  <span id="error-almacen-destino" class="error"></span>
+  <input type="number" id="cantidad" value="1" min="1">
+  <button onclick="agregarArticulo()">Agregar</button>
+</div>
 
       <table id="tabla-picking">
         <thead>

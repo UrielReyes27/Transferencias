@@ -1,7 +1,8 @@
 let articulos = {};
 let reporteActual = null;
 let ultimoCodigoValidado = '';
-let ultimoAlmacenValidado = '';
+let ultimoAlmacenOrigenValidado = '';
+let ultimoAlmacenDestinoValidado = '';
 
 // Inicialización de eventos
 document.addEventListener('DOMContentLoaded', function() {
@@ -19,10 +20,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
+  // Campo de almacén origen
+  const almacenOrigenInput = document.getElementById('almacen-origen');
+  almacenOrigenInput.addEventListener('input', manejarEntradaAlmacenOrigen);
+  almacenOrigenInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      document.getElementById('almacen-destino').focus();
+    }
+  });
+  
   // Campo de almacén destino
-  const almacenInput = document.getElementById('almacen-destino');
-  almacenInput.addEventListener('input', manejarEntradaAlmacen);
-  almacenInput.addEventListener('keydown', function(e) {
+  const almacenDestinoInput = document.getElementById('almacen-destino');
+  almacenDestinoInput.addEventListener('input', manejarEntradaAlmacenDestino);
+  almacenDestinoInput.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
       document.getElementById('cantidad').focus();
     }
@@ -54,8 +64,8 @@ function manejarEntradaCodigo() {
   }, esEscaneo ? 0 : 300);
 }
 
-// Función para manejar entrada de almacén
-function manejarEntradaAlmacen() {
+// Función para manejar entrada de almacén origen
+function manejarEntradaAlmacenOrigen() {
   const almacen = this.value.trim();
   const esEscaneo = almacen.length > 0 && (this.value.includes('\n') || this.value.includes('\t'));
   
@@ -65,9 +75,27 @@ function manejarEntradaAlmacen() {
   
   setTimeout(() => {
     const almacenActual = this.value.trim();
-    if (almacenActual && almacenActual !== ultimoAlmacenValidado) {
-      validarAlmacenEnTiempoReal(almacenActual, esEscaneo);
-      ultimoAlmacenValidado = almacenActual;
+    if (almacenActual && almacenActual !== ultimoAlmacenOrigenValidado) {
+      validarAlmacenEnTiempoReal(almacenActual, 'origen', esEscaneo);
+      ultimoAlmacenOrigenValidado = almacenActual;
+    }
+  }, esEscaneo ? 0 : 300);
+}
+
+// Función para manejar entrada de almacén destino
+function manejarEntradaAlmacenDestino() {
+  const almacen = this.value.trim();
+  const esEscaneo = almacen.length > 0 && (this.value.includes('\n') || this.value.includes('\t'));
+  
+  if (esEscaneo) {
+    this.value = almacen.replace(/[\n\t]/g, '').trim();
+  }
+  
+  setTimeout(() => {
+    const almacenActual = this.value.trim();
+    if (almacenActual && almacenActual !== ultimoAlmacenDestinoValidado) {
+      validarAlmacenEnTiempoReal(almacenActual, 'destino', esEscaneo);
+      ultimoAlmacenDestinoValidado = almacenActual;
     }
   }, esEscaneo ? 0 : 300);
 }
@@ -94,7 +122,6 @@ function validarCodigoEnTiempoReal(codigo, moverFoco = false) {
   })
   .then(data => {
     if (data.error) {
-      // Mensajes más específicos
       if (data.error === 'Artículo no existe') {
         errorElement.textContent = '❌ Código NO EXISTE en el sistema';
       } else if (data.error === 'Artículo inactivo') {
@@ -110,7 +137,7 @@ function validarCodigoEnTiempoReal(codigo, moverFoco = false) {
       descripcionElement.value = data.descripcion;
       
       if (moverFoco) {
-        document.getElementById('almacen-destino').focus();
+        document.getElementById('almacen-origen').focus();
       }
     }
   })
@@ -122,21 +149,12 @@ function validarCodigoEnTiempoReal(codigo, moverFoco = false) {
   });
 }
 
-// Función mejorada para validar almacén
-// ... (todo el código anterior se mantiene igual hasta la función validarAlmacenEnTiempoReal)
-
-function validarAlmacenEnTiempoReal(almacen, moverFoco = false) {
-  // Asegurarnos que el elemento de error existe
-  let errorAlmacenElement = document.getElementById('error-almacen');
-  if (!errorAlmacenElement) {
-    errorAlmacenElement = document.createElement('span');
-    errorAlmacenElement.id = 'error-almacen';
-    errorAlmacenElement.className = 'error';
-    document.getElementById('almacen-destino').insertAdjacentElement('afterend', errorAlmacenElement);
-  }
-
+// Función para validar almacén (origen o destino)
+function validarAlmacenEnTiempoReal(almacen, tipo = 'destino', moverFoco = false) {
+  const errorElement = document.getElementById(`error-almacen-${tipo}`);
+  
   if (!almacen) {
-    errorAlmacenElement.textContent = '';
+    if (errorElement) errorElement.textContent = '';
     return;
   }
 
@@ -146,40 +164,34 @@ function validarAlmacenEnTiempoReal(almacen, moverFoco = false) {
     body: JSON.stringify({ almacen })
   })
   .then(response => {
-    if (!response.ok) {
-      throw new Error('Error en la respuesta del servidor');
-    }
+    if (!response.ok) throw new Error('Error en la respuesta del servidor');
     return response.json();
   })
   .then(data => {
     if (data.error) {
-      // Mensajes específicos para cada tipo de error
-      if (data.error.includes('no existe')) {
-        errorAlmacenElement.textContent = '❌ Almacén NO REGISTRADO en el sistema';
-      } else if (data.error.includes('inactivo')) {
-        errorAlmacenElement.textContent = '❌ Almacén INACTIVO (no disponible)';
-      } else {
-        errorAlmacenElement.textContent = '❌ ' + data.error;
-      }
-      errorAlmacenElement.style.color = '#e74c3c';
+      errorElement.textContent = `❌ ${data.error}`;
+      errorElement.style.color = '#e74c3c';
     } else {
-      errorAlmacenElement.textContent = '✓ Almacén VALIDADO correctamente';
-      errorAlmacenElement.style.color = '#2ecc71';
+      errorElement.textContent = '✓ Almacén VALIDADO correctamente';
+      errorElement.style.color = '#2ecc71';
       
       if (moverFoco) {
-        document.getElementById('cantidad').focus();
+        if (tipo === 'origen') {
+          document.getElementById('almacen-destino').focus();
+        } else {
+          document.getElementById('cantidad').focus();
+        }
       }
     }
   })
   .catch(error => {
-    console.error('Error en la validación:', error);
-    errorAlmacenElement.textContent = '⚠️ Error al conectar con el servidor. Revise su conexión.';
-    errorAlmacenElement.style.color = '#f39c12'; // Color amarillo/naranja para advertencia
+    console.error('Error:', error);
+    errorElement.textContent = '❌ Error al conectar con el servidor';
+    errorElement.style.color = '#e74c3c';
   });
 }
 
-// ... (el resto del código se mantiene igual)
-
+// Funciones para mostrar pantallas
 function mostrarPantalla(id) {
   document.querySelectorAll('.pantalla').forEach(p => p.style.display = 'none');
   document.getElementById(id).style.display = 'block';
@@ -191,9 +203,11 @@ function mostrarNuevoReporte() {
   document.getElementById('nombre-reporte').value = '';
   document.getElementById('cuerpo-tabla').innerHTML = '';
   document.getElementById('error-codigo').textContent = '';
-  document.getElementById('error-almacen')?.remove();
+  document.getElementById('error-almacen-origen').textContent = '';
+  document.getElementById('error-almacen-destino').textContent = '';
   document.getElementById('codigo').value = '';
   document.getElementById('descripcion').value = '';
+  document.getElementById('almacen-origen').value = '';
   document.getElementById('almacen-destino').value = '';
   document.getElementById('cantidad').value = '1';
   mostrarPantalla('nuevo-reporte');
@@ -206,50 +220,34 @@ function mostrarMisReportes() {
   cargarReportes();
 }
 
+// Función para agregar artículo (modificada para incluir almacén origen)
 function agregarArticulo() {
   const codigo = document.getElementById('codigo').value.trim();
+  const almacenOrigen = document.getElementById('almacen-origen').value.trim();
   const almacenDestino = document.getElementById('almacen-destino').value.trim();
   const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
   const errorCodigoElement = document.getElementById('error-codigo');
-  const errorAlmacenElement = document.getElementById('error-almacen');
+  const errorAlmacenOrigenElement = document.getElementById('error-almacen-origen');
+  const errorAlmacenDestinoElement = document.getElementById('error-almacen-destino');
   const descripcion = document.getElementById('descripcion').value;
 
   // Validar código
-  if (!codigo) {
-    errorCodigoElement.textContent = '❌ Ingrese un código válido';
-    errorCodigoElement.style.color = '#e74c3c';
+  if (!codigo || errorCodigoElement.textContent.includes('❌')) {
+    alert('Por favor ingrese un código válido');
     document.getElementById('codigo').focus();
     return;
   }
 
-  if (errorCodigoElement.textContent.includes('❌')) {
-    errorCodigoElement.textContent = '❌ Corrija el código antes de agregar';
-    errorCodigoElement.style.color = '#e74c3c';
-    document.getElementById('codigo').focus();
+  // Validar almacén origen
+  if (!almacenOrigen || (errorAlmacenOrigenElement && errorAlmacenOrigenElement.textContent.includes('❌'))) {
+    alert('Por favor ingrese un almacén origen válido');
+    document.getElementById('almacen-origen').focus();
     return;
   }
 
-  // Validar almacén
-  if (!almacenDestino) {
-    if (!errorAlmacenElement) {
-      const almacenInput = document.getElementById('almacen-destino');
-      const newErrorElement = document.createElement('span');
-      newErrorElement.id = 'error-almacen';
-      newErrorElement.className = 'error';
-      newErrorElement.textContent = '❌ Ingrese un almacén válido';
-      newErrorElement.style.color = '#e74c3c';
-      almacenInput.insertAdjacentElement('afterend', newErrorElement);
-    } else {
-      errorAlmacenElement.textContent = '❌ Ingrese un almacén válido';
-      errorAlmacenElement.style.color = '#e74c3c';
-    }
-    document.getElementById('almacen-destino').focus();
-    return;
-  }
-
-  if (errorAlmacenElement?.textContent.includes('❌')) {
-    errorAlmacenElement.textContent = '❌ Corrija el almacén antes de agregar';
-    errorAlmacenElement.style.color = '#e74c3c';
+  // Validar almacén destino
+  if (!almacenDestino || (errorAlmacenDestinoElement && errorAlmacenDestinoElement.textContent.includes('❌'))) {
+    alert('Por favor ingrese un almacén destino válido');
     document.getElementById('almacen-destino').focus();
     return;
   }
@@ -260,6 +258,7 @@ function agregarArticulo() {
   } else {
     articulos[codigo] = {
       descripcion: descripcion,
+      almacenOrigen: almacenOrigen,
       almacenDestino: almacenDestino,
       cantidad: cantidad
     };
@@ -270,12 +269,15 @@ function agregarArticulo() {
   // Limpiar campos
   document.getElementById('codigo').value = '';
   document.getElementById('descripcion').value = '';
+  document.getElementById('almacen-origen').value = '';
   document.getElementById('almacen-destino').value = '';
   document.getElementById('error-codigo').textContent = '';
-  document.getElementById('error-almacen')?.remove();
+  if (errorAlmacenOrigenElement) errorAlmacenOrigenElement.textContent = '';
+  if (errorAlmacenDestinoElement) errorAlmacenDestinoElement.textContent = '';
   document.getElementById('codigo').focus();
 }
 
+// Función para actualizar la tabla (modificada para mostrar almacén origen)
 function actualizarTabla() {
   const tbody = document.getElementById('cuerpo-tabla');
   tbody.innerHTML = '';
@@ -287,7 +289,7 @@ function actualizarTabla() {
     row.innerHTML = `
       <td>${codigo}</td>
       <td>${articulo.descripcion}</td>
-      <td></td>
+      <td>${articulo.almacenOrigen}</td>
       <td></td>
       <td>${articulo.almacenDestino}</td>
       <td></td>
@@ -299,6 +301,7 @@ function actualizarTabla() {
   });
 }
 
+// Función para guardar reporte (modificada para incluir almacén origen)
 function guardarReporte() {
   const nombre = document.getElementById('nombre-reporte').value.trim();
   
@@ -354,6 +357,7 @@ function guardarReporte() {
   });
 }
 
+// Función para cargar reportes
 function cargarReportes() {
   fetch('obtener_reportes.php')
     .then(response => {
@@ -405,6 +409,7 @@ function cargarReportes() {
     });
 }
 
+// Función para asignar eventos a los reportes
 function asignarEventosReportes() {
   document.querySelectorAll('.btn-ver').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -428,6 +433,7 @@ function asignarEventosReportes() {
   });
 }
 
+// Función para mostrar detalle del reporte (modificada para mostrar almacén origen)
 function mostrarDetalleReporte(reporte) {
   document.getElementById('nombre-reporte-detalle').textContent = reporte.nombre;
   const contenido = document.getElementById('contenido-reporte');
@@ -450,7 +456,7 @@ function mostrarDetalleReporte(reporte) {
       <tr>
         <th>Número de Artículo</th>
         <th>Descripción</th>
-        <th>Almacén</th>
+        <th>Almacén Origen</th>
         <th>Ubicaciones</th>
         <th>Almacén Destino</th>
         <th>Ubicaciones</th>
@@ -472,7 +478,7 @@ function mostrarDetalleReporte(reporte) {
       row.innerHTML = `
         <td>${codigo}</td>
         <td>${articulo.descripcion}</td>
-        <td></td>
+        <td>${articulo.almacenOrigen}</td>
         <td></td>
         <td>${articulo.almacenDestino}</td>
         <td></td>
@@ -511,11 +517,13 @@ function mostrarDetalleReporte(reporte) {
   document.getElementById('detalle-reporte').style.display = 'block';
 }
 
+// Función para cerrar detalle
 function cerrarDetalle() {
   document.getElementById('detalle-reporte').style.display = 'none';
   document.getElementById('lista-reportes').style.display = 'grid';
 }
 
+// Función para eliminar reporte
 function eliminarReporte(id, elemento, enDetalle = false) {
   if (!confirm('¿Estás seguro de eliminar este reporte?')) return;
 
@@ -547,16 +555,17 @@ function eliminarReporte(id, elemento, enDetalle = false) {
   });
 }
 
+// Función para exportar a Excel (modificada para incluir almacén origen)
 function exportarAExcel(nombre, articulos) {
   function toLatin1(str) {
     return unescape(encodeURIComponent(str));
   }
 
-  let csvContent = "Número de Artículo,Descripción,Almacén,Ubicaciones,Almacén Destino,Ubicaciones,First to Bin,Total\n";
+  let csvContent = "Número de Artículo,Descripción,Almacén Origen,Ubicaciones,Almacén Destino,Ubicaciones,First to Bin,Total\n";
   
   Object.keys(articulos).forEach(codigo => {
     const art = articulos[codigo];
-    csvContent += `"${codigo}","${art.descripcion}",,"","${art.almacenDestino}",,,"${art.cantidad}"\n`;
+    csvContent += `"${codigo}","${art.descripcion}","${art.almacenOrigen}",,"${art.almacenDestino}",,,"${art.cantidad}"\n`;
   });
 
   const blob = new Blob([toLatin1(csvContent)], { type: 'text/csv;charset=iso-8859-1;' });
@@ -572,6 +581,7 @@ function exportarAExcel(nombre, articulos) {
   document.body.removeChild(link);
 }
 
+// Función para exportar reporte
 function exportarReporte(reporte) {
   let articulosExportar = {};
   try {
@@ -586,6 +596,7 @@ function exportarReporte(reporte) {
   exportarAExcel(reporte.nombre, articulosExportar);
 }
 
+// Función para formatear fecha
 function formatFecha(fechaStr) {
   if (!fechaStr) return 'Fecha no disponible';
   const fecha = new Date(fechaStr);
