@@ -327,18 +327,27 @@ function guardarReporte() {
 }
 
 function exportarAExcel(nombre) {
-  function toLatin1(str) {
-    return unescape(encodeURIComponent(str));
-  }
+  // Encabezados con codificación correcta
+  const encabezados = [
+    "Código", 
+    "Descripción",
+    "Almacén Origen",
+    "Ubicación Origen",
+    "Almacén Destino",
+    "Ubicación Destino",
+    "First to Bin",
+    "Cantidad"
+  ].join(",") + "\n";
 
-  let csvContent = "Código,Descripción,Almacén Origen,Ubicación Origen,Almacén Destino,Ubicación Destino,First to Bin,Cantidad\n";
+  let csvContent = "\uFEFF"; // BOM para UTF-8
+  csvContent += encabezados;
   
   Object.keys(articulosConsolidados).forEach(clave => {
     const art = articulosConsolidados[clave];
     csvContent += `"${art.codigo}","${art.descripcion}","${art.almacenOrigen}","","${art.almacenDestino}","","","${art.cantidad}"\n`;
   });
 
-  const blob = new Blob([toLatin1(csvContent)], { type: 'text/csv;charset=iso-8859-1;' });
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   
