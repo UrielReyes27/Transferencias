@@ -597,3 +597,87 @@ window.addEventListener('beforeunload', function(e) {
     return e.returnValue;
   }
 });
+
+// 1. Reemplazar la función guardarReporte original por esta versión mejorada
+function guardarReporte() {
+  const nombre = document.getElementById('nombre-reporte').value.trim();
+  
+  if (!nombre) {
+    alert('Ingrese un nombre para el reporte');
+    return;
+  }
+
+  if (Object.keys(articulosConsolidados).length === 0) {
+    alert('No hay artículos para guardar');
+    return;
+  }
+
+  // Mostrar confirmación antes de guardar
+  Swal.fire({
+    title: '¿Guardar reporte definitivamente?',
+    html: `<div style="text-align:left;">
+             <p>⚠️ <strong>Atención:</strong></p>
+             <ul>
+               <li>No podrás añadir más artículos después de guardar</li>
+               <li>No se permitirán modificaciones</li>
+             </ul>
+           </div>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, guardar definitivamente',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      guardarReporteFinal(nombre); // Llamar a la función de guardado real
+    }
+  });
+}
+
+// 2. Nueva función para el guardado final (contiene tu lógica original)
+function guardarReporteFinal(nombre) {
+  const datos = {
+    nombre,
+    articulos: articulosConsolidados,
+    capturasIndividuales,
+    fecha: new Date().toISOString()
+  };
+
+  fetch('guardar_reporte.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  })
+  .then(response => {
+    if (!response.ok) return response.json().then(err => { throw err; });
+    return response.json();
+  })
+  .then(data => {
+    if (data.success) {
+      // Mostrar confirmación de éxito
+      Swal.fire({
+        title: '✅ Reporte guardado',
+        text: 'Este reporte ya no aceptará modificaciones',
+        icon: 'success',
+        confirmButtonText: 'Entendido'
+      }).then(() => {
+        // Bloquear interfaz
+        document.getElementById('codigo').disabled = true;
+        document.getElementById('btnGuardarReporte').disabled = true;
+        document.getElementById('btnGuardarReporte').classList.add('disabled');
+        
+        // Resto de tu lógica original
+        exportarAExcel(nombre, articulosConsolidados);
+        hayCambiosNoGuardados = false;
+        mostrarPantalla('inicio');
+      });
+    } else {
+      throw new Error(data.error || 'Error desconocido');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    Swal.fire('Error', 'Ocurrió un error al guardar: ' + error.message, 'error');
+  });
+}

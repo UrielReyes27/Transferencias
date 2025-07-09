@@ -3,95 +3,348 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <title>Sistema de Escaneo</title>
+  <!-- SweetAlert2 para modales bonitos -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <div class="menu">
-    <h2>Menú</h2>
-    <button id="btnNuevoReporte">Nuevo Reporte</button>
-    <button id="btnMisReportes">Mis Reportes</button>
+  <!-- Menú Hamburguesa para móvil -->
+  <div class="menu-mobile">
+    <button id="btnMenuMobile">
+      <i class="fas fa-bars"></i>
+    </button>
+    <h1>Sistema de Escaneo</h1>
   </div>
 
-  <div class="contenido">
-    <!-- Pantalla de inicio -->
-    <div id="inicio" class="pantalla">
-      <h1>Bienvenido al Sistema de Escaneo</h1>
-      <p>Selecciona una opción del menú para comenzar.</p>
-    </div>
-
-    <!-- Pantalla de nuevo reporte -->
-    <div id="nuevo-reporte" class="pantalla" style="display:none;">
-      <h1>Nuevo Reporte</h1>
-      <div class="form-group">
-        <label for="nombre-reporte">Nombre del Reporte:</label>
-        <input type="text" id="nombre-reporte" placeholder="Ej: Tarima1">
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2><i class="fas fa-barcode"></i> Escaneo</h2>
       </div>
-      
-      <div class="formulario">
-        <input type="text" id="codigo" placeholder="Escanea el código" autofocus>
-        <span id="error-codigo" class="error"></span>
-        <input type="text" id="descripcion" placeholder="Descripción" readonly>
-        <input type="text" id="almacen-origen" placeholder="Almacén Origen">
-        <span id="error-almacen-origen" class="error"></span>
-        <input type="text" id="almacen-destino" placeholder="Almacén Destino">
-        <span id="error-almacen-destino" class="error"></span>
-        <input type="number" id="cantidad" value="1" min="1">
-        <button onclick="agregarArticulo()">Agregar</button>
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <a href="#" class="nav-link active" id="btnInicio">
+            <i class="fas fa-home"></i> <span>Inicio</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link" id="btnNuevoReporte">
+            <i class="fas fa-plus-circle"></i> <span>Nuevo Reporte</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link" id="btnMisReportes">
+            <i class="fas fa-file-alt"></i> <span>Mis Reportes</span>
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="header">
+        <h1 id="titulo-pagina">Bienvenido al Sistema de Escaneo</h1>
+        <div class="user-info">
+          <div class="user-avatar">US</div>
+        </div>
+      </header>
+
+      <!-- Pantallas de contenido -->
+      <div class="pantallas">
+        <!-- Pantalla de inicio -->
+        <div id="inicio" class="pantalla active">
+          <div class="card welcome-container">
+            <div class="card-header">
+              <h2><i class="fas fa-home"></i> Panel Principal</h2>
+            </div>
+            <div class="card-body">
+              <p class="welcome-text">Bienvenido al sistema de gestión de inventario. Selecciona una opción para comenzar:</p>
+              
+              <div class="welcome-actions">
+                <div class="welcome-card" id="cardNuevoReporte">
+                  <div class="welcome-icon">
+                    <i class="fas fa-plus-circle"></i>
+                  </div>
+                  <h3>Nuevo Reporte</h3>
+                  <p>Crea un nuevo registro de inventario</p>
+                </div>
+                
+                <div class="welcome-card" id="cardMisReportes">
+                  <div class="welcome-icon">
+                    <i class="fas fa-file-alt"></i>
+                  </div>
+                  <h3>Mis Reportes</h3>
+                  <p>Consulta tus reportes anteriores</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pantalla de nuevo reporte -->
+        <div id="nuevo-reporte" class="pantalla">
+          <div class="card">
+            <div class="card-header">
+              <h2><i class="fas fa-plus-circle"></i> Nuevo Reporte</h2>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="nombre-reporte">Nombre del Reporte:</label>
+                <input type="text" id="nombre-reporte" class="form-control" placeholder="Ej: Tarima1">
+              </div>
+              
+              <div class="form-row">
+                <div class="form-col">
+                  <div class="form-group">
+                    <label for="codigo">Código:</label>
+                    <input type="text" id="codigo" class="form-control" placeholder="Escanea el código" autofocus>
+                    <span id="error-codigo" class="error-message"></span>
+                  </div>
+                </div>
+                <div class="form-col">
+                  <div class="form-group">
+                    <label for="descripcion">Descripción:</label>
+                    <input type="text" id="descripcion" class="form-control" readonly>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-col">
+                  <div class="form-group">
+                    <label for="almacen-origen">Almacén Origen:</label>
+                    <input type="text" id="almacen-origen" class="form-control">
+                    <span id="error-almacen-origen" class="error-message"></span>
+                  </div>
+                </div>
+                <div class="form-col">
+                  <div class="form-group">
+                    <label for="almacen-destino">Almacén Destino:</label>
+                    <input type="text" id="almacen-destino" class="form-control">
+                    <span id="error-almacen-destino" class="error-message"></span>
+                  </div>
+                </div>
+                <div class="form-col">
+                  <div class="form-group">
+                    <label for="cantidad">Cantidad:</label>
+                    <input type="number" id="cantidad" class="form-control" value="1" min="1">
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary" onclick="agregarArticulo()">
+                <i class="fas fa-plus"></i> Agregar Artículo
+              </button>
+              
+          <button id="btnGuardarReporte" class="btn btn-success">
+            <i class="fas fa-save"></i> Guardar Reporte
+          </button>
+            </div>
+          </div>
+
+          <!-- Tabla de capturas individuales -->
+          <div class="card">
+            <div class="card-header">
+              <h2><i class="fas fa-list"></i> Capturas Individuales</h2>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table id="tabla-capturas-individuales" class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Descripción</th>
+                      <th>Almacén Origen</th>
+                      <th>Almacén Destino</th>
+                      <th>Cantidad</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cuerpo-tabla-individual"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabla consolidada -->
+          <div class="card">
+            <div class="card-header">
+              <h2><i class="fas fa-table"></i> Resumen Consolidado</h2>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table id="tabla-picking-consolidada" class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Descripción</th>
+                      <th>Almacén Origen</th>
+                      <th>Ubicación</th>
+                      <th>Almacén Destino</th>
+                      <th>Ubicación</th>
+                      <th>First to Bin</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cuerpo-tabla-consolidada"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pantalla de mis reportes -->
+        <div id="mis-reportes" class="pantalla">
+          <div class="card">
+            <div class="card-header">
+              <h2><i class="fas fa-file-alt"></i> Mis Reportes</h2>
+            </div>
+            <div class="card-body">
+              <div id="lista-reportes" class="reportes-grid"></div>
+            </div>
+          </div>
+
+          <!-- Detalle del reporte -->
+          <div id="detalle-reporte" class="card" style="display:none;">
+            <div class="card-header">
+              <h2 id="nombre-reporte-detalle"></h2>
+              <div class="reporte-meta">
+                <span><i class="fas fa-calendar"></i> <span id="reporte-fecha"></span></span>
+                <span><i class="fas fa-boxes"></i> <span id="reporte-articulos"></span> artículos</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="contenido-reporte" class="reporte-detalle"></div>
+              <div class="reporte-actions">
+                <button class="btn btn-primary" onclick="cerrarDetalle()">
+                  <i class="fas fa-arrow-left"></i> Volver
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+    </main>
+  </div>
 
-      <div class="tabla-capturas">
-        <h3>Capturas Individuales</h3>
-        <table id="tabla-capturas-individuales">
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Descripción</th>
-              <th>Almacén Origen</th>
-              <th>Almacén Destino</th>
-              <th>Cantidad</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody id="cuerpo-tabla-individual"></tbody>
-        </table>
+  <!-- Alert Modal -->
+  <div class="alert-overlay" id="alertOverlay">
+    <div class="alert-box">
+      <div class="alert-icon">
+        <i class="fas fa-exclamation-triangle"></i>
       </div>
-
-      <table id="tabla-picking-consolidada">
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Descripción</th>
-            <th>Almacén</th>
-            <th>Ubicaciones</th>
-            <th>Almacén Destino</th>
-            <th>Ubicaciones</th>
-            <th>First to Bin</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody id="cuerpo-tabla-consolidada"></tbody>
-      </table>
-
-      <button id="btnGuardarReporte" class="exportar">Guardar Reporte</button>
-    </div>
-
-    <!-- Pantalla de mis reportes -->
-    <div id="mis-reportes" class="pantalla" style="display:none;">
-      <h1>Mis Reportes</h1>
-      <div id="lista-reportes"></div>
-      <div id="detalle-reporte" style="display:none;">
-        <h2 id="nombre-reporte-detalle"></h2>
-        <div id="contenido-reporte"></div>
-        <button onclick="cerrarDetalle()">Volver</button>
+      <h3 class="alert-title">¡Advertencia!</h3>
+      <p class="alert-message">Tienes datos no guardados. Si cambias de pantalla se perderán. ¿Estás seguro?</p>
+      <div class="alert-actions">
+        <button class="btn btn-outline" id="alertCancel">Cancelar</button>
+        <button class="btn btn-danger" id="alertConfirm">Continuar</button>
       </div>
     </div>
   </div>
 
   <script src="script.js"></script>
   <script src="script2.js"></script>
-  
 
+<script>
+    // Controlador para el menú móvil
+    document.getElementById('btnMenuMobile').addEventListener('click', function() {
+      document.getElementById('sidebar').classList.toggle('active');
+    });
+
+    // Función para cambiar de pantalla
+    function cambiarPantalla(idPantalla) {
+      // Oculta todas las pantallas
+      document.querySelectorAll('.pantalla').forEach(pantalla => {
+        pantalla.classList.remove('active');
+      });
+      
+      // Muestra la pantalla seleccionada
+      document.getElementById(idPantalla).classList.add('active');
+      
+      // Actualiza el título de la página
+      const titulos = {
+        'inicio': 'Panel Principal',
+        'nuevo-reporte': 'Nuevo Reporte',
+        'mis-reportes': 'Mis Reportes'
+      };
+      document.getElementById('titulo-pagina').textContent = titulos[idPantalla] || 'Sistema de Escaneo';
+      
+      // Cierra el menú móvil si está abierto
+      document.getElementById('sidebar').classList.remove('active');
+      
+      // Enfoca el campo de código si es nuevo reporte
+      if (idPantalla === 'nuevo-reporte') {
+        setTimeout(() => {
+          document.getElementById('codigo').focus();
+        }, 300);
+      }
+    }
+
+    // Event listeners para navegación
+    document.getElementById('btnInicio').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!window.verificarCambiosAntesDeNavegar || verificarCambiosAntesDeNavegar()) {
+        cambiarPantalla('inicio');
+      }
+    });
+
+    document.getElementById('btnNuevoReporte').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!window.verificarCambiosAntesDeNavegar || verificarCambiosAntesDeNavegar()) {
+        cambiarPantalla('nuevo-reporte');
+      }
+    });
+
+    document.getElementById('btnMisReportes').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (!window.verificarCambiosAntesDeNavegar || verificarCambiosAntesDeNavegar()) {
+        cambiarPantalla('mis-reportes');
+        if (window.cargarReportes) {
+          cargarReportes();
+        }
+      }
+    });
+
+    // Event listeners para las cards de inicio
+    document.getElementById('cardNuevoReporte').addEventListener('click', function() {
+      if (!window.verificarCambiosAntesDeNavegar || verificarCambiosAntesDeNavegar()) {
+        cambiarPantalla('nuevo-reporte');
+      }
+    });
+
+    document.getElementById('cardMisReportes').addEventListener('click', function() {
+      if (!window.verificarCambiosAntesDeNavegar || verificarCambiosAntesDeNavegar()) {
+        cambiarPantalla('mis-reportes');
+        if (window.cargarReportes) {
+          cargarReportes();
+        }
+      }
+    });
+
+    // Configuración de la alerta
+    document.getElementById('alertCancel').addEventListener('click', function() {
+      document.getElementById('alertOverlay').classList.remove('active');
+    });
+
+    document.getElementById('alertConfirm').addEventListener('click', function() {
+      document.getElementById('alertOverlay').classList.remove('active');
+      if (window.continuarNavegacion) {
+        continuarNavegacion();
+      }
+    });
+
+    // Función para mostrar alerta (compatible con tu código)
+    window.mostrarAlertaCambios = function(callback) {
+      document.getElementById('alertOverlay').classList.add('active');
+      window.continuarNavegacion = callback;
+    };
+  </script>
 </body>
 </html>
