@@ -344,7 +344,7 @@ function exportarAExcel(nombre, articulos = articulosConsolidados) {
   
   Object.keys(articulos).forEach(clave => {
     const art = articulos[clave];
-    csvContent += `"${art.codigo}","${art.descripcion}","${art.almacenOrigen}","","${art.almacenDestino}","","","${art.cantidad}"\n`;
+    csvContent += `"${art.codigo}","","${art.almacenOrigen}","","${art.almacenDestino}","","","${art.cantidad}"\n`;
   });
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
