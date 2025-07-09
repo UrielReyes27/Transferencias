@@ -314,7 +314,7 @@ function guardarReporte() {
   .then(data => {
     if (data.success) {
       alert('Reporte guardado exitosamente');
-      exportarAExcel(nombre);
+      exportarAExcel(nombre, articulosConsolidados); // Pasar los artículos explícitamente
       mostrarPantalla('inicio');
     } else {
       throw new Error(data.error || 'Error desconocido');
@@ -326,8 +326,8 @@ function guardarReporte() {
   });
 }
 
-function exportarAExcel(nombre) {
-  // Encabezados con codificación correcta
+// Función modificada para exportar
+function exportarAExcel(nombre, articulos = articulosConsolidados) {
   const encabezados = [
     "Código", 
     "Descripción",
@@ -339,11 +339,11 @@ function exportarAExcel(nombre) {
     "Cantidad"
   ].join(",") + "\n";
 
-  let csvContent = "\uFEFF"; // BOM para UTF-8
+  let csvContent = "\uFEFF";
   csvContent += encabezados;
   
-  Object.keys(articulosConsolidados).forEach(clave => {
-    const art = articulosConsolidados[clave];
+  Object.keys(articulos).forEach(clave => {
+    const art = articulos[clave];
     csvContent += `"${art.codigo}","${art.descripcion}","${art.almacenOrigen}","","${art.almacenDestino}","","","${art.cantidad}"\n`;
   });
 
@@ -527,8 +527,7 @@ function exportarReporte(reporte) {
     alert('Error al exportar el reporte');
     return;
   }
-
-  exportarAExcel(reporte.nombre, articulosExportar);
+  exportarAExcel(reporte.nombre, articulosExportar); // Pasa los artículos correctos
 }
 
 function eliminarReporte(id, elemento, enDetalle = false) {
