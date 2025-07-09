@@ -2,6 +2,7 @@
 let capturasIndividuales = [];
 let articulosConsolidados = {};
 let reporteActual = null;
+let hayCambiosNoGuardados = false;
 
 // Función para generar clave única
 function generarClaveUnica(codigo, almacenOrigen, almacenDestino) {
@@ -61,6 +62,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Enter') agregarArticulo();
   });
 });
+
+// Función para verificar cambios antes de navegar
+function verificarCambiosAntesDeNavegar() {
+  if (hayCambiosNoGuardados && capturasIndividuales.length > 0) {
+    return confirm('⚠️ Tienes datos no guardados. Si cambias de pantalla se perderán. ¿Estás seguro?');
+  }
+  return true;
+}
 
 // Función para validar campos
 function validarCampo(input, tipo, moverFoco = false, forzarValidacion = false) {
@@ -171,6 +180,7 @@ function agregarArticulo() {
 
   actualizarTablas();
   limpiarCampos();
+  hayCambiosNoGuardados = true;
 }
 
 // Función para actualizar tablas
@@ -246,6 +256,7 @@ function eliminarCaptura(id) {
 
   capturasIndividuales.splice(index, 1);
   actualizarTablas();
+  hayCambiosNoGuardados = true;
 }
 
 function limpiarCampos() {
@@ -253,6 +264,7 @@ function limpiarCampos() {
   document.getElementById('descripcion').value = '';
   document.getElementById('almacen-origen').value = '';
   document.getElementById('almacen-destino').value = '';
+  document.getElementById('cantidad').value = '1'; // Asegurar que vuelva a 1
   document.getElementById('error-codigo').textContent = '';
   document.getElementById('error-almacen-origen').textContent = '';
   document.getElementById('error-almacen-destino').textContent = '';
@@ -265,9 +277,12 @@ function mostrarPantalla(id) {
 }
 
 function mostrarNuevoReporte() {
+  if (!verificarCambiosAntesDeNavegar()) return;
+  
   capturasIndividuales = [];
   articulosConsolidados = {};
   reporteActual = null;
+  hayCambiosNoGuardados = false;
   document.getElementById('nombre-reporte').value = '';
   document.getElementById('cuerpo-tabla-individual').innerHTML = '';
   document.getElementById('cuerpo-tabla-consolidada').innerHTML = '';
@@ -277,6 +292,8 @@ function mostrarNuevoReporte() {
 }
 
 function mostrarMisReportes() {
+  if (!verificarCambiosAntesDeNavegar()) return;
+  
   mostrarPantalla('mis-reportes');
   document.getElementById('lista-reportes').innerHTML = '<p>Cargando reportes...</p>';
   cargarReportes();
@@ -314,7 +331,8 @@ function guardarReporte() {
   .then(data => {
     if (data.success) {
       alert('Reporte guardado exitosamente');
-      exportarAExcel(nombre, articulosConsolidados); // Pasar los artículos explícitamente
+      exportarAExcel(nombre, articulosConsolidados);
+      hayCambiosNoGuardados = false;
       mostrarPantalla('inicio');
     } else {
       throw new Error(data.error || 'Error desconocido');
@@ -326,7 +344,6 @@ function guardarReporte() {
   });
 }
 
-// Función modificada para exportar
 function exportarAExcel(nombre, articulos = articulosConsolidados) {
   const encabezados = [
     "Código", 
@@ -527,7 +544,7 @@ function exportarReporte(reporte) {
     alert('Error al exportar el reporte');
     return;
   }
-  exportarAExcel(reporte.nombre, articulosExportar); // Pasa los artículos correctos
+  exportarAExcel(reporte.nombre, articulosExportar);
 }
 
 function eliminarReporte(id, elemento, enDetalle = false) {
@@ -571,3 +588,12 @@ function formatFecha(fechaStr) {
   const fecha = new Date(fechaStr);
   return fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString();
 }
+
+// Proteger contra cierre de pestaña/ventana
+window.addEventListener('beforeunload', function(e) {
+  if (hayCambiosNoGuardados && capturasIndividuales.length > 0) {
+    e.preventDefault();
+    e.returnValue = 'Tienes datos no guardados. ¿Estás seguro de salir?';
+    return e.returnValue;
+  }
+});
