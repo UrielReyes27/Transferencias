@@ -3,17 +3,83 @@ let capturasIndividuales = [];
 let articulosConsolidados = {};
 let reporteActual = null;
 let hayCambiosNoGuardados = false;
+let confirmacionMostrada = false; // Controla mensajes duplicados
 
 // Función para generar clave única
 function generarClaveUnica(codigo, almacenOrigen, almacenDestino) {
   return `${codigo}-${almacenOrigen}-${almacenDestino}`;
 }
 
+// Función para reiniciar el estado del sistema
+function reiniciarEstadoSistema() {
+  capturasIndividuales = [];
+  articulosConsolidados = {};
+  reporteActual = null;
+  hayCambiosNoGuardados = false;
+  confirmacionMostrada = false;
+  
+  document.getElementById('nombre-reporte').value = '';
+  document.getElementById('codigo').value = '';
+  document.getElementById('descripcion').value = '';
+  document.getElementById('almacen-origen').value = '';
+  document.getElementById('almacen-destino').value = '';
+  document.getElementById('cantidad').value = '1';
+  
+  document.getElementById('error-codigo').textContent = '';
+  document.getElementById('error-almacen-origen').textContent = '';
+  document.getElementById('error-almacen-destino').textContent = '';
+  
+  document.getElementById('cuerpo-tabla-individual').innerHTML = '';
+  document.getElementById('cuerpo-tabla-consolidada').innerHTML = '';
+  
+  document.getElementById('codigo').disabled = false;
+  document.getElementById('btnGuardarReporte').disabled = false;
+  document.getElementById('btnGuardarReporte').classList.remove('disabled');
+}
+
+// Función para verificar cambios antes de navegar (MODIFICADA)
+function verificarCambiosAntesDeNavegar() {
+  if (hayCambiosNoGuardados && capturasIndividuales.length > 0 && !confirmacionMostrada) {
+    confirmacionMostrada = true;
+    return Swal.fire({
+      title: '⚠️ ¿Descartar cambios?',
+      html: `<div style="text-align:left;">
+               <p>Tienes <strong>${capturasIndividuales.length} artículos</strong> sin guardar.</p>
+               <p>¿Estás seguro de descartarlos?</p>
+             </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, descartar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (!result.isConfirmed) {
+        confirmacionMostrada = false; // Resetear si cancela
+      }
+      return result.isConfirmed;
+    });
+  }
+  return Promise.resolve(true);
+}
+
 // Inicialización de eventos
 document.addEventListener('DOMContentLoaded', function() {
   // Botones principales
-  document.getElementById('btnNuevoReporte').addEventListener('click', mostrarNuevoReporte);
-  document.getElementById('btnMisReportes').addEventListener('click', mostrarMisReportes);
+  document.getElementById('btnNuevoReporte').addEventListener('click', async function(e) {
+    e.preventDefault();
+    if (await verificarCambiosAntesDeNavegar()) {
+      mostrarNuevoReporte();
+    }
+  });
+
+  document.getElementById('btnMisReportes').addEventListener('click', async function(e) {
+    e.preventDefault();
+    if (await verificarCambiosAntesDeNavegar()) {
+      mostrarMisReportes();
+    }
+  });
+
   document.getElementById('btnGuardarReporte').addEventListener('click', guardarReporte);
   
   // Campos del formulario
@@ -25,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
   codigoInput.addEventListener('input', function() {
     validarCampo(this, 'codigo');
   });
+  
   codigoInput.addEventListener('paste', function(e) {
     setTimeout(() => validarCampo(this, 'codigo', false, true), 50);
   });
@@ -33,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
   almacenOrigenInput.addEventListener('input', function() {
     validarCampo(this, 'almacen-origen');
   });
+  
   almacenOrigenInput.addEventListener('paste', function(e) {
     setTimeout(() => validarCampo(this, 'almacen-origen'), 50);
   });
@@ -41,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
   almacenDestinoInput.addEventListener('input', function() {
     validarCampo(this, 'almacen-destino');
   });
+  
   almacenDestinoInput.addEventListener('paste', function(e) {
     setTimeout(() => validarCampo(this, 'almacen-destino'), 50);
   });
@@ -62,14 +131,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Enter') agregarArticulo();
   });
 });
-
-// Función para verificar cambios antes de navegar
-function verificarCambiosAntesDeNavegar() {
-  if (hayCambiosNoGuardados && capturasIndividuales.length > 0) {
-    return confirm('⚠️ Tienes datos no guardados. Si cambias de pantalla se perderán. ¿Estás seguro?');
-  }
-  return true;
-}
 
 // Función para validar campos
 function validarCampo(input, tipo, moverFoco = false, forzarValidacion = false) {
@@ -181,6 +242,7 @@ function agregarArticulo() {
   actualizarTablas();
   limpiarCampos();
   hayCambiosNoGuardados = true;
+  confirmacionMostrada = false; // Resetear al agregar nuevo artículo
 }
 
 // Función para actualizar tablas
@@ -257,6 +319,7 @@ function eliminarCaptura(id) {
   capturasIndividuales.splice(index, 1);
   actualizarTablas();
   hayCambiosNoGuardados = true;
+  confirmacionMostrada = false; // Resetear al eliminar artículo
 }
 
 function limpiarCampos() {
@@ -264,7 +327,7 @@ function limpiarCampos() {
   document.getElementById('descripcion').value = '';
   document.getElementById('almacen-origen').value = '';
   document.getElementById('almacen-destino').value = '';
-  document.getElementById('cantidad').value = '1'; // Asegurar que vuelva a 1
+  document.getElementById('cantidad').value = '1';
   document.getElementById('error-codigo').textContent = '';
   document.getElementById('error-almacen-origen').textContent = '';
   document.getElementById('error-almacen-destino').textContent = '';
@@ -277,23 +340,11 @@ function mostrarPantalla(id) {
 }
 
 function mostrarNuevoReporte() {
-  if (!verificarCambiosAntesDeNavegar()) return;
-  
-  capturasIndividuales = [];
-  articulosConsolidados = {};
-  reporteActual = null;
-  hayCambiosNoGuardados = false;
-  document.getElementById('nombre-reporte').value = '';
-  document.getElementById('cuerpo-tabla-individual').innerHTML = '';
-  document.getElementById('cuerpo-tabla-consolidada').innerHTML = '';
-  limpiarCampos();
-  document.getElementById('cantidad').value = '1';
+  reiniciarEstadoSistema();
   mostrarPantalla('nuevo-reporte');
 }
 
 function mostrarMisReportes() {
-  if (!verificarCambiosAntesDeNavegar()) return;
-  
   mostrarPantalla('mis-reportes');
   document.getElementById('lista-reportes').innerHTML = '<p>Cargando reportes...</p>';
   cargarReportes();
@@ -303,15 +354,38 @@ function guardarReporte() {
   const nombre = document.getElementById('nombre-reporte').value.trim();
   
   if (!nombre) {
-    alert('Ingrese un nombre para el reporte');
+    Swal.fire('Error', 'Ingrese un nombre para el reporte', 'error');
     return;
   }
 
   if (Object.keys(articulosConsolidados).length === 0) {
-    alert('No hay artículos para guardar');
+    Swal.fire('Error', 'No hay artículos para guardar', 'error');
     return;
   }
 
+  Swal.fire({
+    title: '¿Guardar reporte definitivamente?',
+    html: `<div style="text-align:left;">
+             <p>⚠️ <strong>Atención:</strong></p>
+             <ul>
+               <li>Este reporte se bloqueará para edición</li>
+               <li>Podrás crear nuevos reportes después</li>
+             </ul>
+           </div>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Guardar y continuar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      guardarReporteFinal(nombre);
+    }
+  });
+}
+
+function guardarReporteFinal(nombre) {
   const datos = {
     nombre,
     articulos: articulosConsolidados,
@@ -330,17 +404,21 @@ function guardarReporte() {
   })
   .then(data => {
     if (data.success) {
-      alert('Reporte guardado exitosamente');
-      exportarAExcel(nombre, articulosConsolidados);
-      hayCambiosNoGuardados = false;
-      mostrarPantalla('inicio');
+      Swal.fire({
+        title: '✅ Reporte guardado',
+        text: `El reporte "${nombre}" ha sido guardado correctamente`,
+        icon: 'success'
+      }).then(() => {
+        reiniciarEstadoSistema();
+        mostrarNuevoReporte();
+      });
     } else {
       throw new Error(data.error || 'Error desconocido');
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    alert('Error al guardar: ' + error.message);
+    Swal.fire('Error', 'Ocurrió un error al guardar: ' + error.message, 'error');
   });
 }
 
@@ -589,95 +667,11 @@ function formatFecha(fechaStr) {
   return fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString();
 }
 
-// Proteger contra cierre de pestaña/ventana
+// Evento beforeunload (optimizado)
 window.addEventListener('beforeunload', function(e) {
-  if (hayCambiosNoGuardados && capturasIndividuales.length > 0) {
+  if (hayCambiosNoGuardados && capturasIndividuales.length > 0 && !confirmacionMostrada) {
     e.preventDefault();
-    e.returnValue = 'Tienes datos no guardados. ¿Estás seguro de salir?';
+    e.returnValue = 'Tienes cambios sin guardar. ¿Seguro que quieres salir?';
     return e.returnValue;
   }
 });
-
-// 1. Reemplazar la función guardarReporte original por esta versión mejorada
-function guardarReporte() {
-  const nombre = document.getElementById('nombre-reporte').value.trim();
-  
-  if (!nombre) {
-    alert('Ingrese un nombre para el reporte');
-    return;
-  }
-
-  if (Object.keys(articulosConsolidados).length === 0) {
-    alert('No hay artículos para guardar');
-    return;
-  }
-
-  // Mostrar confirmación antes de guardar
-  Swal.fire({
-    title: '¿Guardar reporte definitivamente?',
-    html: `<div style="text-align:left;">
-             <p>⚠️ <strong>Atención:</strong></p>
-             <ul>
-               <li>No podrás añadir más artículos después de guardar</li>
-               <li>No se permitirán modificaciones</li>
-             </ul>
-           </div>`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'Sí, guardar definitivamente',
-    cancelButtonText: 'Cancelar'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      guardarReporteFinal(nombre); // Llamar a la función de guardado real
-    }
-  });
-}
-
-// 2. Nueva función para el guardado final (contiene tu lógica original)
-function guardarReporteFinal(nombre) {
-  const datos = {
-    nombre,
-    articulos: articulosConsolidados,
-    capturasIndividuales,
-    fecha: new Date().toISOString()
-  };
-
-  fetch('guardar_reporte.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(datos)
-  })
-  .then(response => {
-    if (!response.ok) return response.json().then(err => { throw err; });
-    return response.json();
-  })
-  .then(data => {
-    if (data.success) {
-      // Mostrar confirmación de éxito
-      Swal.fire({
-        title: '✅ Reporte guardado',
-        text: 'Este reporte ya no aceptará modificaciones',
-        icon: 'success',
-        confirmButtonText: 'Entendido'
-      }).then(() => {
-        // Bloquear interfaz
-        document.getElementById('codigo').disabled = true;
-        document.getElementById('btnGuardarReporte').disabled = true;
-        document.getElementById('btnGuardarReporte').classList.add('disabled');
-        
-        // Resto de tu lógica original
-        exportarAExcel(nombre, articulosConsolidados);
-        hayCambiosNoGuardados = false;
-        mostrarPantalla('inicio');
-      });
-    } else {
-      throw new Error(data.error || 'Error desconocido');
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    Swal.fire('Error', 'Ocurrió un error al guardar: ' + error.message, 'error');
-  });
-}
