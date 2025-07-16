@@ -3,7 +3,6 @@ let capturasIndividuales = [];
 let articulosConsolidados = {};
 let reporteActual = null;
 let hayCambiosNoGuardados = false;
-let confirmacionMostrada = false; // Controla mensajes duplicados
 
 // Función para generar clave única
 function generarClaveUnica(codigo, almacenOrigen, almacenDestino) {
@@ -16,7 +15,6 @@ function reiniciarEstadoSistema() {
   articulosConsolidados = {};
   reporteActual = null;
   hayCambiosNoGuardados = false;
-  confirmacionMostrada = false;
   
   document.getElementById('nombre-reporte').value = '';
   document.getElementById('codigo').value = '';
@@ -37,100 +35,28 @@ function reiniciarEstadoSistema() {
   document.getElementById('btnGuardarReporte').classList.remove('disabled');
 }
 
-// Función para verificar cambios antes de navegar (MODIFICADA)
-function verificarCambiosAntesDeNavegar() {
-  if (hayCambiosNoGuardados && capturasIndividuales.length > 0 && !confirmacionMostrada) {
-    confirmacionMostrada = true;
-    return Swal.fire({
-      title: '⚠️ ¿Descartar cambios?',
-      html: `<div style="text-align:left;">
-               <p>Tienes <strong>${capturasIndividuales.length} artículos</strong> sin guardar.</p>
-               <p>¿Estás seguro de descartarlos?</p>
-             </div>`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sí, descartar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (!result.isConfirmed) {
-        confirmacionMostrada = false; // Resetear si cancela
-      }
-      return result.isConfirmed;
-    });
+// Función para verificar cambios antes de navegar (CORREGIDA)
+async function verificarCambiosAntesDeNavegar() {
+  if (!hayCambiosNoGuardados || capturasIndividuales.length === 0) {
+    return true;
   }
-  return Promise.resolve(true);
+
+  const result = await Swal.fire({
+    title: '⚠️ ¿Descartar cambios?',
+    html: `<div style="text-align:left;">
+             <p>Tienes <strong>${capturasIndividuales.length} artículos</strong> sin guardar.</p>
+             <p>¿Estás seguro de descartarlos?</p>
+           </div>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, descartar',
+    cancelButtonText: 'Cancelar'
+  });
+
+  return result.isConfirmed;
 }
-
-// Inicialización de eventos
-document.addEventListener('DOMContentLoaded', function() {
-  // Botones principales
-  document.getElementById('btnNuevoReporte').addEventListener('click', async function(e) {
-    e.preventDefault();
-    if (await verificarCambiosAntesDeNavegar()) {
-      mostrarNuevoReporte();
-    }
-  });
-
-  document.getElementById('btnMisReportes').addEventListener('click', async function(e) {
-    e.preventDefault();
-    if (await verificarCambiosAntesDeNavegar()) {
-      mostrarMisReportes();
-    }
-  });
-
-  document.getElementById('btnGuardarReporte').addEventListener('click', guardarReporte);
-  
-  // Campos del formulario
-  const codigoInput = document.getElementById('codigo');
-  const almacenOrigenInput = document.getElementById('almacen-origen');
-  const almacenDestinoInput = document.getElementById('almacen-destino');
-  
-  // Eventos para código
-  codigoInput.addEventListener('input', function() {
-    validarCampo(this, 'codigo');
-  });
-  
-  codigoInput.addEventListener('paste', function(e) {
-    setTimeout(() => validarCampo(this, 'codigo', false, true), 50);
-  });
-  
-  // Eventos para almacén origen
-  almacenOrigenInput.addEventListener('input', function() {
-    validarCampo(this, 'almacen-origen');
-  });
-  
-  almacenOrigenInput.addEventListener('paste', function(e) {
-    setTimeout(() => validarCampo(this, 'almacen-origen'), 50);
-  });
-  
-  // Eventos para almacén destino
-  almacenDestinoInput.addEventListener('input', function() {
-    validarCampo(this, 'almacen-destino');
-  });
-  
-  almacenDestinoInput.addEventListener('paste', function(e) {
-    setTimeout(() => validarCampo(this, 'almacen-destino'), 50);
-  });
-  
-  // Eventos de teclado
-  codigoInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') validarCampo(this, 'codigo', true);
-  });
-  
-  almacenOrigenInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') validarCampo(this, 'almacen-origen', true);
-  });
-  
-  almacenDestinoInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') validarCampo(this, 'almacen-destino', true);
-  });
-  
-  document.getElementById('cantidad').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') agregarArticulo();
-  });
-});
 
 // Función para validar campos
 function validarCampo(input, tipo, moverFoco = false, forzarValidacion = false) {
@@ -209,7 +135,7 @@ function agregarArticulo() {
   ].some(e => e.textContent.includes('❌'));
 
   if (!codigo || !almacenOrigen || !almacenDestino || errores) {
-    alert('Complete todos los campos correctamente');
+    Swal.fire('Error', 'Complete todos los campos correctamente', 'error');
     return;
   }
 
@@ -242,7 +168,6 @@ function agregarArticulo() {
   actualizarTablas();
   limpiarCampos();
   hayCambiosNoGuardados = true;
-  confirmacionMostrada = false; // Resetear al agregar nuevo artículo
 }
 
 // Función para actualizar tablas
@@ -319,7 +244,6 @@ function eliminarCaptura(id) {
   capturasIndividuales.splice(index, 1);
   actualizarTablas();
   hayCambiosNoGuardados = true;
-  confirmacionMostrada = false; // Resetear al eliminar artículo
 }
 
 function limpiarCampos() {
@@ -626,33 +550,43 @@ function exportarReporte(reporte) {
 }
 
 function eliminarReporte(id, elemento, enDetalle = false) {
-  if (!confirm('¿Estás seguro de eliminar este reporte?')) return;
-
-  fetch('eliminar_reporte.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  })
-  .then(response => {
-    if (!response.ok) throw new Error('Error en el servidor');
-    return response.json();
-  })
-  .then(data => {
-    if (data.success) {
-      if (enDetalle) {
-        alert('Reporte eliminado');
-        cerrarDetalle();
-        cargarReportes();
-      } else {
-        elemento.remove();
-      }
-    } else {
-      throw new Error(data.error || 'Error al eliminar');
+  Swal.fire({
+    title: '¿Eliminar reporte?',
+    text: "¡Esta acción no se puede deshacer!",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch('eliminar_reporte.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Error en el servidor');
+        return response.json();
+      })
+      .then(data => {
+        if (data.success) {
+          Swal.fire('¡Eliminado!', 'El reporte ha sido eliminado.', 'success');
+          if (enDetalle) {
+            cerrarDetalle();
+            cargarReportes();
+          } else {
+            elemento.remove();
+          }
+        } else {
+          throw new Error(data.error || 'Error al eliminar');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'No se pudo eliminar: ' + error.message, 'error');
+      });
     }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert('Error al eliminar reporte: ' + error.message);
   });
 }
 
@@ -669,9 +603,91 @@ function formatFecha(fechaStr) {
 
 // Evento beforeunload (optimizado)
 window.addEventListener('beforeunload', function(e) {
-  if (hayCambiosNoGuardados && capturasIndividuales.length > 0 && !confirmacionMostrada) {
+  if (hayCambiosNoGuardados && capturasIndividuales.length > 0) {
     e.preventDefault();
     e.returnValue = 'Tienes cambios sin guardar. ¿Seguro que quieres salir?';
     return e.returnValue;
   }
+});
+
+// Inicialización de eventos
+document.addEventListener('DOMContentLoaded', function() {
+  // Botones principales
+  document.getElementById('btnNuevoReporte').addEventListener('click', async function(e) {
+    e.preventDefault();
+    if (await verificarCambiosAntesDeNavegar()) {
+      mostrarNuevoReporte();
+    }
+  });
+
+  document.getElementById('btnMisReportes').addEventListener('click', async function(e) {
+    e.preventDefault();
+    if (await verificarCambiosAntesDeNavegar()) {
+      mostrarMisReportes();
+    }
+  });
+
+  document.getElementById('btnGuardarReporte').addEventListener('click', guardarReporte);
+  
+  // Campos del formulario
+  const codigoInput = document.getElementById('codigo');
+  const almacenOrigenInput = document.getElementById('almacen-origen');
+  const almacenDestinoInput = document.getElementById('almacen-destino');
+  
+  // Eventos para código
+  codigoInput.addEventListener('input', function() {
+    validarCampo(this, 'codigo');
+  });
+  
+  codigoInput.addEventListener('paste', function(e) {
+    setTimeout(() => validarCampo(this, 'codigo', false, true), 50);
+  });
+  
+  // Eventos para almacén origen
+  almacenOrigenInput.addEventListener('input', function() {
+    validarCampo(this, 'almacen-origen');
+  });
+  
+  almacenOrigenInput.addEventListener('paste', function(e) {
+    setTimeout(() => validarCampo(this, 'almacen-origen'), 50);
+  });
+  
+  // Eventos para almacén destino
+  almacenDestinoInput.addEventListener('input', function() {
+    validarCampo(this, 'almacen-destino');
+  });
+  
+  almacenDestinoInput.addEventListener('paste', function(e) {
+    setTimeout(() => validarCampo(this, 'almacen-destino'), 50);
+  });
+  
+  // Eventos de teclado
+  codigoInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') validarCampo(this, 'codigo', true);
+  });
+  
+  almacenOrigenInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') validarCampo(this, 'almacen-origen', true);
+  });
+  
+  almacenDestinoInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') validarCampo(this, 'almacen-destino', true);
+  });
+  
+  document.getElementById('cantidad').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') agregarArticulo();
+  });
+
+  // Cards de inicio
+  document.getElementById('cardNuevoReporte').addEventListener('click', async function() {
+    if (await verificarCambiosAntesDeNavegar()) {
+      mostrarNuevoReporte();
+    }
+  });
+
+  document.getElementById('cardMisReportes').addEventListener('click', async function() {
+    if (await verificarCambiosAntesDeNavegar()) {
+      mostrarMisReportes();
+    }
+  });
 });
