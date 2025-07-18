@@ -3,6 +3,7 @@ let capturasIndividuales = [];
 let articulosConsolidados = {};
 let reporteActual = null;
 let hayCambiosNoGuardados = false;
+let validacionEnProgreso = false;
 
 // Función para generar clave única
 function generarClaveUnica(codigo, almacenOrigen, almacenDestino) {
@@ -15,6 +16,7 @@ function reiniciarEstadoSistema() {
   articulosConsolidados = {};
   reporteActual = null;
   hayCambiosNoGuardados = false;
+  validacionEnProgreso = false;
   
   document.getElementById('nombre-reporte').value = '';
   document.getElementById('codigo').value = '';
@@ -31,11 +33,15 @@ function reiniciarEstadoSistema() {
   document.getElementById('cuerpo-tabla-consolidada').innerHTML = '';
   
   document.getElementById('codigo').disabled = false;
+  document.getElementById('almacen-origen').disabled = false;
+  document.getElementById('almacen-destino').disabled = false;
   document.getElementById('btnGuardarReporte').disabled = false;
   document.getElementById('btnGuardarReporte').classList.remove('disabled');
+  
+  document.getElementById('codigo').focus();
 }
 
-// Función para verificar cambios antes de navegar (CORREGIDA)
+// Función para verificar cambios antes de navegar
 async function verificarCambiosAntesDeNavegar() {
   if (!hayCambiosNoGuardados || capturasIndividuales.length === 0) {
     return true;
@@ -58,48 +64,107 @@ async function verificarCambiosAntesDeNavegar() {
   return result.isConfirmed;
 }
 
-// Función para validar campos
-function validarCampo(input, tipo, moverFoco = false, forzarValidacion = false) {
+// Función para validar campos CON BLOQUEO INMEDIATO Y SELECCIÓN EN ERRORES
+async function validarCampo(input, tipo) {
+  if (validacionEnProgreso) return false;
+  validacionEnProgreso = true;
+  
   const valor = input.value.trim().replace(/[\n\t\r]/g, '');
   input.value = valor;
   
   if (!valor) {
-    mostrarError(tipo, '');
-    return false;
-  }
-
-  if ((tipo === 'codigo' && valor.length < 3) || 
-      ((tipo === 'almacen-origen' || tipo === 'almacen-destino') && valor.length < 2)) {
-    mostrarError(tipo, '❌ Valor demasiado corto');
+    mostrarError(tipo, 'Campo requerido');
+    bloquearCamposSiguientes(tipo);
+    input.focus();
+    input.select(); // Seleccionar texto en error
+    validacionEnProgreso = false;
     return false;
   }
 
   const endpoint = tipo === 'codigo' ? 'validar_articulo.php' : 'validar_almacen.php';
   
-  fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(tipo === 'codigo' ? { codigo: valor } : { almacen: valor })
-  })
-  .then(response => {
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tipo === 'codigo' ? { codigo: valor } : { almacen: valor })
+    });
+
     if (!response.ok) throw new Error('Error en la respuesta');
-    return response.json();
-  })
-  .then(data => {
+    
+    const data = await response.json();
+    
     if (data.error) {
       mostrarError(tipo, `❌ ${data.error}`);
+      bloquearCamposSiguientes(tipo);
+      input.focus();
+      input.select(); // SELECCIONAR TEXTO cuando hay error
+      validacionEnProgreso = false;
+      return false;
     } else {
       mostrarError(tipo, '✓ Válido', true);
       if (tipo === 'codigo') {
         document.getElementById('descripcion').value = data.descripcion || '';
       }
-      if (moverFoco) moverFocoSiguiente(tipo);
+      desbloquearCampoSiguiente(tipo);
+      validacionEnProgreso = false;
+      return true;
     }
-  })
-  .catch(error => {
+  } catch (error) {
     console.error('Error:', error);
     mostrarError(tipo, '❌ Error de conexión');
-  });
+    bloquearCamposSiguientes(tipo);
+    input.focus();
+    input.select(); // SELECCIONAR TEXTO cuando hay error de conexión
+    validacionEnProgreso = false;
+    return false;
+  }
+}
+
+// Función para bloquear campos siguientes
+function bloquearCamposSiguientes(tipoActual) {
+  switch(tipoActual) {
+    case 'codigo':
+      document.getElementById('almacen-origen').disabled = true;
+      document.getElementById('almacen-destino').disabled = true;
+      document.getElementById('almacen-origen').value = '';
+      document.getElementById('almacen-destino').value = '';
+      document.getElementById('error-almacen-origen').textContent = '';
+      document.getElementById('error-almacen-destino').textContent = '';
+      break;
+    case 'almacen-origen':
+      document.getElementById('almacen-destino').disabled = true;
+      document.getElementById('almacen-destino').value = '';
+      document.getElementById('error-almacen-destino').textContent = '';
+      break;
+  }
+}
+
+// Función para desbloquear siguiente campo
+function desbloquearCampoSiguiente(tipoActual) {
+  switch(tipoActual) {
+    case 'codigo':
+      document.getElementById('almacen-origen').disabled = false;
+      // Auto-focus al siguiente campo
+      setTimeout(() => {
+        document.getElementById('almacen-origen').focus();
+      }, 100);
+      break;
+    case 'almacen-origen':
+      document.getElementById('almacen-destino').disabled = false;
+      // Auto-focus al siguiente campo
+      setTimeout(() => {
+        document.getElementById('almacen-destino').focus();
+      }, 100);
+      break;
+    case 'almacen-destino':
+      // Auto-focus al campo cantidad
+      setTimeout(() => {
+        document.getElementById('cantidad').focus();
+        document.getElementById('cantidad').select();
+      }, 100);
+      break;
+  }
 }
 
 // Función para mostrar errores
@@ -111,38 +176,25 @@ function mostrarError(tipo, mensaje, esExito = false) {
   }
 }
 
-// Función para mover foco
-function moverFocoSiguiente(tipo) {
-  const campos = ['codigo', 'almacen-origen', 'almacen-destino', 'cantidad'];
-  const indexActual = campos.indexOf(tipo);
-  if (indexActual < campos.length - 1) {
-    document.getElementById(campos[indexActual + 1]).focus();
-  }
-}
-
-// Función para agregar artículo
-function agregarArticulo() {
+// Función para agregar artículo (SIMPLIFICADA - ya no valida porque se validó en tiempo real)
+async function agregarArticulo() {
+  if (validacionEnProgreso) return;
+  
   const codigo = document.getElementById('codigo').value.trim();
   const almacenOrigen = document.getElementById('almacen-origen').value.trim();
   const almacenDestino = document.getElementById('almacen-destino').value.trim();
   const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
-  const descripcion = document.getElementById('descripcion').value;
 
-  const errores = [
-    document.getElementById('error-codigo'),
-    document.getElementById('error-almacen-origen'),
-    document.getElementById('error-almacen-destino')
-  ].some(e => e.textContent.includes('❌'));
-
-  if (!codigo || !almacenOrigen || !almacenDestino || errores) {
-    Swal.fire('Error', 'Complete todos los campos correctamente', 'error');
+  // Verificación final (no debería fallar si la validación inmediata funcionó)
+  if (!codigo || !almacenOrigen || !almacenDestino) {
+    Swal.fire('Error', 'Complete todos los campos requeridos', 'error');
     return;
   }
 
   const captura = {
     id: Date.now(),
     codigo,
-    descripcion,
+    descripcion: document.getElementById('descripcion').value,
     almacenOrigen,
     almacenDestino,
     cantidad,
@@ -158,7 +210,7 @@ function agregarArticulo() {
   } else {
     articulosConsolidados[claveUnica] = {
       codigo,
-      descripcion,
+      descripcion: document.getElementById('descripcion').value,
       almacenOrigen,
       almacenDestino,
       cantidad
@@ -170,7 +222,7 @@ function agregarArticulo() {
   hayCambiosNoGuardados = true;
 }
 
-// Función para actualizar tablas
+// Funciones para actualizar tablas
 function actualizarTablas() {
   actualizarTablaIndividual();
   actualizarTablaConsolidada();
@@ -255,9 +307,16 @@ function limpiarCampos() {
   document.getElementById('error-codigo').textContent = '';
   document.getElementById('error-almacen-origen').textContent = '';
   document.getElementById('error-almacen-destino').textContent = '';
+  
+  // Resetear estado de campos
+  document.getElementById('codigo').disabled = false;
+  document.getElementById('almacen-origen').disabled = false;
+  document.getElementById('almacen-destino').disabled = false;
+  
   document.getElementById('codigo').focus();
 }
 
+// Funciones de navegación
 function mostrarPantalla(id) {
   document.querySelectorAll('.pantalla').forEach(p => p.style.display = 'none');
   document.getElementById(id).style.display = 'block';
@@ -274,6 +333,7 @@ function mostrarMisReportes() {
   cargarReportes();
 }
 
+// Funciones para guardar reportes
 function guardarReporte() {
   const nombre = document.getElementById('nombre-reporte').value.trim();
   
@@ -346,39 +406,7 @@ function guardarReporteFinal(nombre) {
   });
 }
 
-function exportarAExcel(nombre, articulos = articulosConsolidados) {
-  const encabezados = [
-    "Código", 
-    "Descripción",
-    "Almacén Origen",
-    "Ubicación Origen",
-    "Almacén Destino",
-    "Ubicación Destino",
-    "First to Bin",
-    "Cantidad"
-  ].join(",") + "\n";
-
-  let csvContent = "\uFEFF";
-  csvContent += encabezados;
-  
-  Object.keys(articulos).forEach(clave => {
-    const art = articulos[clave];
-    csvContent += `"${art.codigo}","","${art.almacenOrigen}","","${art.almacenDestino}","","","${art.cantidad}"\n`;
-  });
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  
-  link.setAttribute('href', url);
-  link.setAttribute('download', `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.csv`);
-  link.style.visibility = 'hidden';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
+// Funciones para reportes
 function cargarReportes() {
   fetch('obtener_reportes.php')
     .then(response => {
@@ -549,6 +577,39 @@ function exportarReporte(reporte) {
   exportarAExcel(reporte.nombre, articulosExportar);
 }
 
+function exportarAExcel(nombre, articulos = articulosConsolidados) {
+  const encabezados = [
+    "Código", 
+    "Descripción",
+    "Almacén Origen",
+    "Ubicación Origen",
+    "Almacén Destino",
+    "Ubicación Destino",
+    "First to Bin",
+    "Cantidad"
+  ].join(",") + "\n";
+
+  let csvContent = "\uFEFF";
+  csvContent += encabezados;
+  
+  Object.keys(articulos).forEach(clave => {
+    const art = articulos[clave];
+    csvContent += `"${art.codigo}","","${art.almacenOrigen}","","${art.almacenDestino}","","","${art.cantidad}"\n`;
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Reporte_${nombre}_${new Date().toISOString().slice(0,10)}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function eliminarReporte(id, elemento, enDetalle = false) {
   Swal.fire({
     title: '¿Eliminar reporte?',
@@ -601,16 +662,7 @@ function formatFecha(fechaStr) {
   return fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString();
 }
 
-// Evento beforeunload (optimizado)
-window.addEventListener('beforeunload', function(e) {
-  if (hayCambiosNoGuardados && capturasIndividuales.length > 0) {
-    e.preventDefault();
-    e.returnValue = 'Tienes cambios sin guardar. ¿Seguro que quieres salir?';
-    return e.returnValue;
-  }
-});
-
-// Inicialización de eventos
+// Inicialización de eventos CON VALIDACIÓN MEJORADA PARA ESCÁNERES
 document.addEventListener('DOMContentLoaded', function() {
   // Botones principales
   document.getElementById('btnNuevoReporte').addEventListener('click', async function(e) {
@@ -629,88 +681,185 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('btnGuardarReporte').addEventListener('click', guardarReporte);
   
-  // Campos del formulario
+  // Campos del formulario con validación MEJORADA para escáneres
   const codigoInput = document.getElementById('codigo');
   const almacenOrigenInput = document.getElementById('almacen-origen');
   const almacenDestinoInput = document.getElementById('almacen-destino');
+  const cantidadInput = document.getElementById('cantidad');
   
-  // Eventos para código
+  // CÓDIGO: Validación inmediata con múltiples eventos
+  let codigoTimeout;
+  
   codigoInput.addEventListener('input', function() {
-    validarCampo(this, 'codigo');
+    // Limpiar timeout anterior
+    clearTimeout(codigoTimeout);
+    
+    // Validar después de 500ms de inactividad (para escáneres rápidos)
+    codigoTimeout = setTimeout(async () => {
+      if (this.value.trim()) {
+        await validarCampo(this, 'codigo');
+      }
+    }, 500);
   });
   
-  codigoInput.addEventListener('paste', function(e) {
-    setTimeout(() => validarCampo(this, 'codigo', false, true), 50);
+  codigoInput.addEventListener('blur', async function() {
+    clearTimeout(codigoTimeout);
+    if (this.value.trim()) {
+      await validarCampo(this, 'codigo');
+    }
   });
   
-  // Eventos para almacén origen
+  codigoInput.addEventListener('change', async function() {
+    clearTimeout(codigoTimeout);
+    if (this.value.trim()) {
+      await validarCampo(this, 'codigo');
+    }
+  });
+  
+  // ALMACÉN ORIGEN: Validación inmediata con múltiples eventos
+  let almacenOrigenTimeout;
+  
   almacenOrigenInput.addEventListener('input', function() {
-    validarCampo(this, 'almacen-origen');
+    clearTimeout(almacenOrigenTimeout);
+    
+    almacenOrigenTimeout = setTimeout(async () => {
+      if (this.value.trim()) {
+        await validarCampo(this, 'almacen-origen');
+      }
+    }, 500);
   });
   
-  almacenOrigenInput.addEventListener('paste', function(e) {
-    setTimeout(() => validarCampo(this, 'almacen-origen'), 50);
+  almacenOrigenInput.addEventListener('blur', async function() {
+    clearTimeout(almacenOrigenTimeout);
+    if (this.value.trim()) {
+      await validarCampo(this, 'almacen-origen');
+    }
   });
   
-  // Eventos para almacén destino
+  almacenOrigenInput.addEventListener('change', async function() {
+    clearTimeout(almacenOrigenTimeout);
+    if (this.value.trim()) {
+      await validarCampo(this, 'almacen-origen');
+    }
+  });
+  
+  // ALMACÉN DESTINO: Validación inmediata con múltiples eventos
+  let almacenDestinoTimeout;
+  
   almacenDestinoInput.addEventListener('input', function() {
-    validarCampo(this, 'almacen-destino');
+    clearTimeout(almacenDestinoTimeout);
+    
+    almacenDestinoTimeout = setTimeout(async () => {
+      if (this.value.trim()) {
+        await validarCampo(this, 'almacen-destino');
+      }
+    }, 500);
   });
   
-  almacenDestinoInput.addEventListener('paste', function(e) {
-    setTimeout(() => validarCampo(this, 'almacen-destino'), 50);
+  almacenDestinoInput.addEventListener('blur', async function() {
+    clearTimeout(almacenDestinoTimeout);
+    if (this.value.trim()) {
+      await validarCampo(this, 'almacen-destino');
+    }
   });
   
-  // Eventos de teclado
-  codigoInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') validarCampo(this, 'codigo', true);
+  almacenDestinoInput.addEventListener('change', async function() {
+    clearTimeout(almacenDestinoTimeout);
+    if (this.value.trim()) {
+      await validarCampo(this, 'almacen-destino');
+    }
   });
-  
-  almacenOrigenInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') validarCampo(this, 'almacen-origen', true);
-  });
-  
-  almacenDestinoInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') validarCampo(this, 'almacen-destino', true);
-  });
-  
-  document.getElementById('cantidad').addEventListener('keydown', function(e) {
+
+  // Cantidad: Enter para agregar
+  cantidadInput.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') agregarArticulo();
   });
 
-  // Cards de inicio
-  document.getElementById('cardNuevoReporte').addEventListener('click', async function() {
-    if (await verificarCambiosAntesDeNavegar()) {
-      mostrarNuevoReporte();
+  // Prevenir TAB si el campo actual no es válido Y SELECCIONAR TEXTO
+  codigoInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+      const errorMsg = document.getElementById('error-codigo').textContent;
+      if (errorMsg && !errorMsg.includes('✓')) {
+        e.preventDefault();
+        this.focus();
+        this.select();
+      }
+    }
+    // NUEVO: Validar inmediatamente al presionar Enter
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      validarCampo(this, 'codigo');
     }
   });
 
-  document.getElementById('cardMisReportes').addEventListener('click', async function() {
-    if (await verificarCambiosAntesDeNavegar()) {
-      mostrarMisReportes();
+ almacenOrigenInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+      const errorMsg = document.getElementById('error-almacen-origen').textContent;
+      if (errorMsg && !errorMsg.includes('✓')) {
+        e.preventDefault();
+        this.focus();
+        this.select();
+      }
+    }
+    // NUEVO: Validar inmediatamente al presionar Enter
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      validarCampo(this, 'almacen-origen');
     }
   });
+
+  almacenDestinoInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Tab') {
+      const errorMsg = document.getElementById('error-almacen-destino').textContent;
+      if (errorMsg && !errorMsg.includes('✓')) {
+        e.preventDefault();
+        this.focus();
+        this.select();
+      }
+    }
+    // NUEVO: Validar inmediatamente al presionar Enter
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      validarCampo(this, 'almacen-destino');
+    }
+  });
+
+  // Botón agregar artículo
+  document.getElementById('btnAgregarArticulo').addEventListener('click', agregarArticulo);
+
+  // Inicializar con primer campo enfocado
+  document.getElementById('codigo').focus();
+  
+  // Mostrar pantalla inicial
+  mostrarNuevoReporte();
 });
 
-
-
-document.addEventListener("DOMContentLoaded", function () {
-  // Detecta cada vez que se escribe algo
-  document.addEventListener("input", function (e) {
-    const target = e.target;
-
-    // Solo aplicar si el elemento permite entrada de texto
-    const isTextInput =
-      target.tagName === "INPUT" ||
-      target.tagName === "TEXTAREA" ||
-      target.isContentEditable;
-
-    if (isTextInput) {
-      // Reemplaza caracteres incorrectos
-      target.value = target.value
-        .replace(/'/g, "-")  // Reemplaza apóstrofe por guion normal
-        .replace(/\?/g, "_"); // Reemplaza ? por guion bajo
-    }
+// Función adicional para manejar errores de conexión
+function manejarErrorConexion(error) {
+  console.error('Error de conexión:', error);
+  Swal.fire({
+    title: 'Error de Conexión',
+    text: 'No se pudo conectar al servidor. Verifique su conexión a internet.',
+    icon: 'error',
+    confirmButtonText: 'Reintentar'
   });
-});
+}
 
+// Función para limpiar caracteres especiales en inputs (útil para escáneres)
+function limpiarInput(valor) {
+  return valor.replace(/[\n\t\r\f\v]/g, '').trim();
+}
+
+// Función para validar formato de código (opcional - agregar según necesidades)
+function validarFormatoCodigo(codigo) {
+  // Ejemplo: solo alfanumérico y guiones
+  const patron = /^[A-Za-z0-9-]+$/;
+  return patron.test(codigo);
+}
+
+// Función para validar formato de almacén (opcional - agregar según necesidades)
+function validarFormatoAlmacen(almacen) {
+  // Ejemplo: solo alfanumérico
+  const patron = /^[A-Za-z0-9]+$/;
+  return patron.test(almacen);
+}
